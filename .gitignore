@@ -1,0 +1,8 @@
+# 根目录下文件
+/data/
+/logs/
+
+# 中间目录下文件夹
+models/
+__pycache__/
+dec/
