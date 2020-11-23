@@ -2,7 +2,9 @@
 /data/
 /logs/
 
-# 中间目录下文件夹
+# 中间目录下文件夹/文件
 models/
 __pycache__/
 dec/
+.DS_Store
+*.ipynb
