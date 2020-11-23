@@ -5,7 +5,6 @@ import numpy as np
 import pickle
 from collections import Counter
 
-
 import librosa
 import matplotlib.pyplot as plt 
 import seaborn as sns 
@@ -15,10 +14,6 @@ from pyecharts import options as opts
 from connect_db import MyConn
 from utils import get_every_day
 
-def get_from_db(track_id, targets):
-	conn = MyConn()
-	res = conn.query(targets=targets, conditions={"track_id": track_id})
-	return list(res[0])
 
 def draw_hist(data, **kwargs):
 	sns.displot(data, **kwargs)
@@ -49,6 +44,9 @@ def draw_bar(data, render_path):
 
 
 def basic_analysis(tracks_set):
+	'''
+	对指定的歌曲集进行基本分析：评论数、时间跨度...
+	'''
 	conn = MyConn()
 	# 数据准备
 	data = []
@@ -67,6 +65,9 @@ def basic_analysis(tracks_set):
 	# tag
 
 def mp3_analysis(tracks_set):
+	'''
+	对指定的歌曲集的音频时长进行分析。
+	'''
 	# 数据准备
 	data_path = "../data/main_tagged_tracks/music_preload_data.pkl"
 	with open(data_path,'rb') as f:
@@ -78,11 +79,11 @@ def mp3_analysis(tracks_set):
 	hist_view(durations)
 
 
-def lyrics_analysis(tracks_set):
-	pass
-
 
 def in_tags_analysis(breakouts_set, no_breakouts_set):
+	'''
+	对指定的歌曲集的内置tags情况进行分析。
+	'''
 	tags = open("../data/metadata/自带tags.txt").read().splitlines()
 	breakouts_tags_d = {}
 	no_breakouts_tags_d = {}
@@ -109,8 +110,10 @@ def in_tags_analysis(breakouts_set, no_breakouts_set):
 	draw_bar(dict(tags_count), "../data/main_tagged_tracks/tags_count.html")
 
 
-def breakouts():
-	json_path = "../data/breakouts-u2.json"
+def breakouts(json_path="../data/breakouts-u2.json"):
+	'''
+	基于json文件进行分析。
+	'''
 	# with open(json_path) as f:
 	# 	content = json.load(f)
 	df = pd.read_json(json_path)
@@ -125,6 +128,9 @@ def breakouts():
 
 
 def pos_neg_words():
+	'''
+	考察pairwise训练中的正负样本情况。
+	'''
 	path = "MyModel/models/pos_neg_words-3.pkl"
 	with open(path, "rb") as f:
 		content = pickle.load(f)

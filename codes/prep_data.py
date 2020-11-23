@@ -13,7 +13,7 @@ from gensim.models import Word2Vec
 
 from connect_db import MyConn
 from threads import ThreadsGroup
-from utils import get_reviews_df, get_reviews_count, get_breakouts, get_breakouts_text
+from breakout_tools import get_reviews_df, get_reviews_count, get_breakouts, get_breakouts_text
 from utils import assign_dir
 from preprocess import tags_extractor
 
