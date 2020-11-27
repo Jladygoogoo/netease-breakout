@@ -61,11 +61,13 @@ class IntrinsicFeatureEmbed(nn.Module):
 	'''
 	将固有特征组合并映射到嵌入空间
 	'''
-	def __init__(self, config):
+	def __init__(self, config, in_dim=1324, embedding_size=None):
+		if embedding_size is None:
+			embedding_size = config.embedding_size
 		super().__init__()
 		self.transform = nn.Sequential(
-			nn.LayerNorm(1324),
-			nn.Linear(in_features=1324, out_features=config.embedding_size)
+			nn.LayerNorm(in_dim),
+			nn.Linear(in_features=in_dim, out_features=embedding_size)
 		)
 
 	def forward(self, x):
@@ -77,10 +79,34 @@ class SemanticFeatureEmbed(nn.Module):
 	'''
 	将语义特征映射到嵌入空间
 	'''
-	def __init__(self, config):
+	def __init__(self, config, in_size=None):
+		if in_size is None:
+			in_size = 300
+
 		super().__init__()
-		self.transform = nn.Linear(in_features=300, out_features=config.embedding_size)
+		self.transform = nn.Linear(in_features=in_size, out_features=config.embedding_size)
 
 	def forward(self, x):
 		return self.transform(x)
+
+
+class DNNClassifier(nn.Module):
+	'''
+	使用前馈神经网络做最后的分类器
+	'''
+	def __init__(self, config, embedding_size=None):
+		n_hidden_1, n_hidden_2 = 128, 64 # 瞎几把乱设的
+		if embedding_size is None:
+			embedding_size = config.embedding_size
+		super().__init__()
+		self.model = nn.Sequential(
+			nn.Linear(embedding_size, n_hidden_1),
+			nn.ReLU(),
+			nn.Linear(n_hidden_1, n_hidden_2),
+			nn.ReLU(),
+			nn.Linear(n_hidden_2, config.class_num)
+		)
+
+	def forward(self, x):
+		return self.model(x)
 

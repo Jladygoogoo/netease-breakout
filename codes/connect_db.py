@@ -6,7 +6,7 @@ class MyConn:
 							db="NetEase_proxied", password="SFpqwnj285798,.")
 		self.cache_count = 0
 
-	def query(self, targets=None, conditions=None, sql=None, table="tracks"):
+	def query(self, targets=None, conditions=None, sql=None, table="tracks", fetchall=True):
 		if not sql:
 			sql = "SELECT {} FROM {}".format(','.join(targets), table)
 			if conditions:
@@ -22,7 +22,10 @@ class MyConn:
 			else:
 				cursor.execute(sql)
 
-		return cursor.fetchall()
+		if fetchall:
+			return cursor.fetchall()
+		return cursor.fetchone()
+
 
 	def update(self, settings=None, conditions=None, sql=None, table="tracks"):
 		if not sql:
@@ -37,16 +40,10 @@ class MyConn:
 					sql += " {}=%s".format(k)
 					if i<len(conditions)-1:
 						sql += " AND"
-
 		with self.conn.cursor() as cursor:
 			cursor.execute(sql, tuple(settings.values())+tuple(conditions.values()))
 
 		self.conn.commit()
-
-		# self.cache_count += 1
-		# if self.cache_count == 100:
-		# 	self.conn.commit()
-		# 	self.cache_count = 0
 
 
 	def insert(self, settings=None, sql=None, table="tracks"):
@@ -61,5 +58,9 @@ class MyConn:
 			cursor.execute(sql, tuple(settings.values()))
 
 		self.conn.commit()
+
+
+	def __del__(self):
+		self.conn.close()
 
 

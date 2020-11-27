@@ -5,6 +5,7 @@ import pickle
 import traceback
 import random
 from threading import Thread, Lock
+from multiprocessing import Lock as PLock
 from queue import Queue
 import logging
 
@@ -12,9 +13,9 @@ import librosa
 from gensim.models import Word2Vec
 
 from connect_db import MyConn
-from threads import ThreadsGroup
+from threads import ThreadsGroup, ProcessGroup
 from breakout_tools import get_reviews_df, get_reviews_count, get_breakouts, get_breakouts_text
-from utils import assign_dir
+from utils import assign_dir, get_tracks_set_db, get_dir_item_set
 from preprocess import tags_extractor
 
 
@@ -24,62 +25,18 @@ def get_from_db(track_id, targets):
 	return list(res[0])
 
 
-def extract_raw_music_data(tracks_set, w_dir):
-	# 单个thread的任务
-	def task(thread_id, task_args):
-		logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(message)s', datefmt='%m-%d %H:%M:%S', filename=task_args["log_file"])
 
-		while not task_args["pool"].empty():
-			track_id = task_args["pool"].get()
-			mp3_path = "/Volumes/nmusic/NetEase2020/data" + get_from_db(track_id=track_id, targets=["mp3_path"])[0]
-
-			try:
-				y, sr = librosa.load(mp3_path, duration=30, offset=10)
-				if librosa.get_duration(y, sr)<30:
-					print("track-{} is shorter than 40s".format(track_id))
-					continue
-
-				task_args["log_lock"].acquire()
-				n_dir = task_args["flag"] // 100
-				task_args["flag"] += 1
-				logging.info("[Thread-{}] successfully load track-{}, flag = {}".format(thread_id, track_id, task_args["flag"]-1))
-				task_args["log_lock"].release()
-
-				w_path = task_args["write_dir"] + "{}/{}.pkl".format(n_dir, track_id)
-				if not os.path.exists(os.path.dirname(w_path)):
-					os.makedirs(os.path.dirname(w_path))
-				with open(w_path, 'wb') as f:
-					pickle.dump(y, f)
-
-			except:
-				task_args["log_lock"].acquire()
-				logging.info("[Thread-{}] failed to load track-{}".format(thread_id, track_id))
-				task_args["log_lock"].release()
-
-	# 开启thread群工作
-	log_lock = Lock()
-	log_file = "../logs/extract_raw_music_data.log"
-	pool = Queue()
-	for t in tracks_set: 
-		pool.put(t)
-
-	task_args = {"log_lock":log_lock, "log_file":log_file, 
-				"pool":pool, "flag":1754,
-				"write_dir": w_dir}
-	threads_group = ThreadsGroup(task=task, n_thread=10, task_args=task_args)
-	threads_group.start()
-
-
-
-def get_main_tagged_tracks():
+def get_main_tagged_tracks(r_path="../data/pucha/BorgCube2_65b1/BorgCube2_65b1.csv"):
+	'''
+	提取出指定聚类关键词的歌曲。
+	'''
 	main_tag_clusters_d = {"短视频":[1,44], "微博":[2,18], "高考":[3,22,35], "节日":[8,9,38,34]}
 
 	main_tagged_tracks = set()
 	main_tagged_tracks_d = {}
 	for k in main_tag_clusters_d:
 		main_tagged_tracks_d[k] = set()
-
-	r_path = "../data/pucha/BorgCube2_65b1/BorgCube2_65b1.csv"
+	
 	df = pd.read_csv(r_path)
 
 	for _, row in df.iterrows():
@@ -137,36 +94,85 @@ def get_main_tagged_tracks():
 
 
 def get_no_breakouts_tracks():
-	sql1 = 'SELECT track_id FROM tracks WHERE first_review BETWEEN %s AND %s and reviews_num BETWEEN %s AND %s and have_mp3=1 and have_lyrics=1'
-	# sql2 = 'SELECT track_id FROM tracks WHERE first_review BETWEEN %s AND %s and reviews_num BETWEEN %s AND %s have_mp3=1 and have_lyrics=1'
+	'''
+	获取未爆发歌曲
+	'''
+	sql = 'SELECT track_id FROM tracks WHERE first_review BETWEEN %s AND %s and reviews_num > %s and have_mp3=1 and have_lyrics=1'
 	
-	# res = get_from_db(sql=sql)
-	conn = MyConn()
-	res1 = conn.query(sql=sql1, conditions={"first_review1":"2013-01-01", "first_review2":"2014-01-01",
-											 "reviews_num1":1000, "reviews_num2":10000})
-	res1 = set([str(r[0]) for r in res1])
-	res2 = conn.query(sql=sql1, conditions={"first_review1":"2018-01-01", "first_review2":"2019-01-01",
-											 "reviews_num1":1000, "reviews_num2":10000})
-	res2 = set([str(r[0]) for r in res2])
-	res3 = conn.query(sql=sql1, conditions={"first_review1":"2014-01-01", "first_review2":"2018-01-01",
-											 "reviews_num1":1000, "reviews_num2":10000})
-	res3 = set([str(r[0]) for r in res3])
+	# 筛选条件：
+	# 至少在一年以前发布，至少有1000条评论的歌曲
+	candidates = get_tracks_set_db(sql=sql, conditions={"first_review1":"2013-01-01", "first_review2":"2019-02-01",
+											 "reviews_num":1000})
 
+	breakouts_tracks = set(map(str, pd.read_json("../data/breakouts-0.json")["track_id"].unique()))
 
-	# breakouts_tracks = pd.read_json("../data/breakouts-u2.json")["track_id"].unique()
-	breakouts_tracks = pd.read_csv("../data/pucha/BorgCube2_65b1/BorgCube2_65b1.csv")["file"].unique()
-	# breakouts_tracks = set(map(lambda x:x[:-5], list(breakouts_tracks))) + set(pd.read_json("../data/breakouts-u2.json")["track_id"].unique())
-	print(len(breakouts_tracks))
-
-	no_breakouts_tracks1 = res1 - res1.intersection(breakouts_tracks)
-	no_breakouts_tracks2 = res2 - res2.intersection(breakouts_tracks)
-	no_breakouts_tracks3 = res3 - res3.intersection(breakouts_tracks)
-	print(len(no_breakouts_tracks1), len(no_breakouts_tracks2), len(no_breakouts_tracks3))
-	no_breakouts_tracks = random.sample(no_breakouts_tracks1, 700) + random.sample(no_breakouts_tracks2, 700) + random.sample(no_breakouts_tracks2, 1600)
+	no_breakouts_tracks = candidates - candidates.intersection(breakouts_tracks)
 	print(len(no_breakouts_tracks))
+	no_breakouts_tracks = random.sample(no_breakouts_tracks, 7000)
 
 	with open("../data/no_breakouts_tracks.txt",'w') as f:
 		f.write('\n'.join(no_breakouts_tracks))
+
+
+def extract_raw_music_data(tracks_set, prefix, flag0=0):
+	'''
+	开启多线程保存rawmusic文件
+	params:
+		tracks_set: 歌曲集
+		prefix: 保存路径头
+		flag: 起始编号
+	'''
+	# 单个thread的任务
+	def task(thread_id, task_args):
+		conn = MyConn()
+		while not task_args["pool"].empty():
+			track_id = task_args["pool"].get()
+
+			mp3_path = "/Volumes/nmusic/NetEase2020/data" + \
+				conn.query(targets=["mp3_path"], conditions={"track_id": track_id})[0][0]
+
+			try:
+				y, sr = librosa.load(mp3_path, duration=30, offset=10)
+				if librosa.get_duration(y, sr)<30:
+					print("track-{} is shorter than 40s".format(track_id))
+					continue
+				# 存储路径
+				pkl_path = os.path.join(
+					assign_dir(prefix=task_args["prefix"], 
+						n_dir=task_args["n_dir"], 
+						dir_size=task_args["dir_size"], 
+						flag=task_args["flag"]),
+					"{}.pkl".format(track_id)
+				)
+				# 将flag+1以更新存储路径，需要lock
+				task_args["lock"].acquire()
+				task_args["flag"] += 1
+				task_args["lock"].release()
+
+				if not os.path.exists(os.path.dirname(pkl_path)):
+					os.makedirs(os.path.dirname(pkl_path))
+				with open(pkl_path, 'wb') as f:
+					pickle.dump(y, f)
+				# print(thread_id, pkl_path)
+
+			except:
+				print("track-{} failed to process.".format(track_id))
+
+	if input("flag={}，确定请输入y: ".format(flag0)) != 'y':
+		print("你个傻子😐")
+		return
+
+	# 开启thread群工作
+	lock = Lock()
+	pool = Queue()
+	flag = flag0
+	for t in tracks_set: 
+		pool.put(t)
+		
+	task_args = {"lock":lock, "pool":pool,
+		"n_dir":2, "dir_size":(10, 100), "flag": flag, "prefix": prefix}
+	threads_group = ThreadsGroup(task=task, n_thread=10, task_args=task_args)
+	threads_group.start()
 
 
 def get_breakouts_json():
@@ -269,39 +275,74 @@ def add_feature_words_to_json():
 		json.dump(data, f, ensure_ascii=False, indent=2)	
 
 
-def prep_rawmusic_data(tracks_set, prefix, flag):
+
+def add_feature_words_to_db():
 	'''
-	提取rawmusic数据并保存
-	param:
-		tracks_set: track_id集合
-		prefix: 保存路径头
+	直接在数据库中更新feature_words，使用多线程
 	'''
-	conn = MyConn()
-	
-	# flag = 2000
-	n_dir = 2
-	dir_size = (10, 100)
-	for t in tracks_set:
-		try:
-			mp3_path = "/Volumes/nmusic/NetEase2020/data" + conn.query(targets=["mp3_path"], conditions={"track_id":t})[0][0]
-			y, sr = librosa.load(mp3_path, duration=30, offset=10)
-			if librosa.get_duration(y, sr)<30:
-				print("track-{} is shorter than 40s".format(t))
-				continue
-			pkl_path = os.path.join(
-				assign_dir(prefix=prefix, n_dir=n_dir, dir_size=dir_size, flag=flag),
-				"{}.pkl".format(t)
-			)
-			with open(pkl_path, 'wb') as f:
-				pickle.dump(y, f)
-			flag += 1
-			# conn.update(settings={"rawmusic_path":pkl_path}, conditions={"track_id":t})
-			print(flag, t)
-		except KeyboardInterrupt:
-			return
-		except:
-			print(flag, t, "ERROR")
-			print(traceback.format_exc())
+	def task(pid, task_args):
+		conn = MyConn()
+		w2v_model = Word2Vec.load("../models/w2v/b1.mod")
+		while 1:
+			task_args["lock"].acquire()
+			res = conn.query(targets=["breakout_id", "text_path"], conditions={"have_words":0}, 
+					table="breakouts", fetchall=False)
+			if res is not None:
+				breakout_id, text_path = res
+				conn.update(table="breakouts",
+							settings={"have_words": 1},
+							conditions={"breakout_id": breakout_id})
+				task_args["lock"].release()
+
+				try:
+					feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
+					conn.insert(table="breakouts_feature_words_1",
+								settings={"breakout_id":breakout_id, "feature_words":" ".join(feature_words)})
+
+					print("[Process-{}] breakout_id: {}, feature_words: {}".format(pid, breakout_id, feature_words))
+				except:
+					conn.update(table="breakouts",
+								settings={"have_words": 0},
+								conditions={"breakout_id": breakout_id})
+					break
+
+			else:
+				task_args["lock"].release()
+				break
+
+	lock = PLock()
+	task_args = {"lock":lock}
+	process_group = ProcessGroup(task=task, n_procs=5, task_args=task_args)
+	process_group.start()
+
+
+
+def extract_no_breakouts_feature_words():
+	def task(pid, task_args):
+		conn = MyConn()
+		w2v_model = Word2Vec.load("../models/w2v/b1.mod")
+		while 1:
+			track_id = task_args["queue"].get()
+			text_path = 
+			try:
+				feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
+				conn.insert(table="breakouts_feature_words_1",
+							settings={"breakout_id":breakout_id, "feature_words":" ".join(feature_words)})
+
+				print("[Process-{}] breakout_id: {}, feature_words: {}".format(pid, breakout_id, feature_words))
+			except:
+				conn.update(table="breakouts",
+							settings={"have_words": 0},
+							conditions={"breakout_id": breakout_id})
+				break
+
+			else:
+				task_args["lock"].release()
+				break
+	no_breakouts_tracks = open("../data/no_breakouts_tracks.txt").read().splitlines()
+	queue = PQueue()
+	for t in no_breakouts_tracks:
+		queue.put(t)
 
 
 
@@ -336,7 +377,7 @@ def mymodel_data():
 
 def update_rawmusic_path():
 	conn = MyConn()
-	path = "/Volumes/nmusic/NetEase2020/data/no_breakouts_rawmusic"
+	path = "/Volumes/nmusic/NetEase2020/data/breakouts_rawmusic"
 	for root, dirs, files in os.walk(path):
 		for file in files:
 			if "DS" in file: continue
@@ -425,14 +466,19 @@ if __name__ == '__main__':
 	# update_rawmusic_path()
 	# regroup_json()
 	# get_no_breakouts_tracks()
-	# no_breakouts_tracks = open("../data/no_breakouts_tracks.txt").read().splitlines()
+	
 	# prefix = "/Volumes/nmusic/NetEase2020/data/no_breakouts_rawmusic"
-	# prep_rawmusic_data(no_breakouts_tracks, prefix, flag=0)
+	# path = "/Volumes/nmusic/NetEase2020/data/breakouts_rawmusic"
+	# tracks_set = set(map(str, pd.read_json("../data/breakouts-0.json")["track_id"].unique()))
+	# existed = get_dir_item_set(path, file_postfix=".pkl")
+	# tracks_set = tracks_set - existed
+	# print(len(tracks_set))
+	# extract_raw_music_data(tracks_set, prefix=path, flag0=6586)
 
-	with open("../data/mymodel_data/dataset_embed-4-1000.pkl", "rb") as f:
-		content = pickle.load(f)
-	print(content[0][0] - content[0][1])
-	# print(content[0][1])
-	# print(content[0][-2])
-	# print(content[0][-1])
-	# 
+
+	# no_breakouts_tracks = open("../data/no_breakouts_tracks.txt").read().splitlines()
+	# extract_raw_music_data(no_breakouts_tracks, 
+	# 			prefix="/Volumes/nmusic/NetEase2020/data/no_breakouts_rawmusic",
+	#  			flag0=0)
+
+	add_feature_words_to_db()

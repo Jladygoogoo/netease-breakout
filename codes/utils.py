@@ -13,9 +13,11 @@ import matplotlib.pyplot as plt
 
 import librosa
 import sklearn.metrics as mt
+from gensim.models import Word2Vec
 
 from d2v import get_doc_vector
 from preprocess import tags_extractor
+from connect_db import MyConn
 
 
 def time_spent():
@@ -165,30 +167,44 @@ def get_tags_vector(tags):
     return vec
 
 
+def get_tracks_set_db(sql, conditions):
+    '''
+    从数据库中获取符合条件的歌曲集
+    params:
+        + sql: 如 'SELECT track_id FROM tracks WHERE have_lyrics=%s'
+        + conditions: 如 {"have_lyrics":1}
+    return: tracks_set
+    '''
+    conn = MyConn()
+    res = conn.query(sql=sql, conditions=conditions)
+    res = set([str(r[0]) for r in res])
+
+    return res
 
 
+def get_dir_item_set(dir_name, file_postfix=".pkl"):
+    '''
+    获取指定文件夹下的所有项目集合
+    '''
+    item_set = set()
+    for root, dirs, files in os.walk(dir_name):
+        for file in files:
+            if "DS" in file: continue
+            item_set.add(file[:-len(file_postfix)])
+    return item_set
 
 
 
 if __name__ == '__main__':
+    model = Word2Vec.load("../models/w2v/b1.mod")
+    vec1 = get_w2v_vector("微博", model)
+    vec2 = get_w2v_vector("热搜", model)
+    print(np.linalg.norm(vec2-vec1))
+    print(model.wv.similarity("微博", "热搜"))
 
-    filepath = "/Volumes/nmusic/NetEase2020/data/proxied_reviews/0/0/3932174.json"
-    reviews_count, dates =  get_reviews_count_series(filepath)
-    # breakout_points = get_breakouts(reviews_count)
-    # for p in breakout_points:
-    #     print(dates[p[0]], p[1])
-    breakouts_group = get_breakouts(reviews_count)
-    for g in breakouts_group:
-        print(g)
-    x = range(len(dates))
-    y = reviews_count
-    plt.plot(x, y)
-    for g in breakouts_group:
-        if y[g[0][0]]>=50:
-            plt.scatter(g[0][0], y[g[0][0]], c='r')
-
-    plt.show()
-
-
+    vec1 = get_w2v_vector("抖音", model)
+    vec2 = get_w2v_vector("快手", model)
+    print(np.linalg.norm(vec2-vec1))
+    print(model.wv.similarity("抖音", "快手"))
 
 

@@ -58,9 +58,9 @@ def basic_analysis(tracks_set):
 	df = pd.DataFrame(data, columns=targets)
 	# df.to_csv("../results/main_tagged_tracks/basic_info.csv", encoding="utf_8_sig", index=False)
 
-	# hist_view(df["reviews_num"].values, log_scale=True, color="tab:orange")
-	durations = list(df.apply(lambda d: len(get_every_day(d["first_review"], d["last_review"], str_source=False)), axis=1).array)
-	draw_hist(durations)
+	draw_hist(df["reviews_num"].values, log_scale=True, color="tab:orange")
+	# durations = list(df.apply(lambda d: len(get_every_day(d["first_review"], d["last_review"], str_source=False)), axis=1).array)
+	# draw_hist(durations)
 
 	# tag
 
@@ -143,17 +143,10 @@ def pos_neg_words():
 
 
 if __name__ == '__main__':
-	# basic_analysis(tracks_set)
+	tracks_set = pd.read_json("../data/breakouts-0.json")["track_id"].unique()
+	basic_analysis(tracks_set)
 	# mp3_analysis(tracks_set)
 	# in_tags_analysis(tracks_set, tracks_set2)
 	# breakouts()
-	with open("MyModel/models/3/losses.pkl", "rb") as f:
-		losses = pickle.load(f)
-	x = range(0, len(losses)*10, 10)
-	plt.plot(x, list(losses.values()))
-	plt.xlabel("batch")
-	plt.ylabel("loss")
-	plt.title("my_loss2")
-	plt.show()
 	# pos_neg_words()
 
