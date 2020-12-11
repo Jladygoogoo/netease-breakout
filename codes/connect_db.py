@@ -32,7 +32,7 @@ class MyConn:
 			sql = "UPDATE {} SET".format(table)
 			for i, k in enumerate(settings):
 				sql += " {}=%s".format(k)
-				if i<len(conditions)-1:
+				if i<len(settings)-1:
 					sql += ","
 			if conditions:
 				sql += " WHERE"
@@ -49,6 +49,20 @@ class MyConn:
 	def insert(self, settings=None, sql=None, table="tracks"):
 		if not sql:
 			sql = "INSERT INTO {} SET".format(table)
+			for i, k in enumerate(settings):
+				sql += " {}=%s".format(k)
+				if i<len(settings)-1:
+					sql += ","
+
+		with self.conn.cursor() as cursor:
+			cursor.execute(sql, tuple(settings.values()))
+
+		self.conn.commit()
+
+
+	def insert_or_update(self, settings=None, sql=None, table="tracks"):
+		if not sql:
+			sql = "REPLACE INTO {} SET".format(table)
 			for i, k in enumerate(settings):
 				sql += " {}=%s".format(k)
 				if i<len(settings)-1:

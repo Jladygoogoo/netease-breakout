@@ -14,10 +14,20 @@ import matplotlib.pyplot as plt
 import librosa
 import sklearn.metrics as mt
 from gensim.models import Word2Vec
+from pychorus.helpers import create_chroma, find_chorus
+
 
 from d2v import get_doc_vector
 from preprocess import tags_extractor
 from connect_db import MyConn
+
+
+def cosine_similarity(a, b):
+    a_norm = np.linalg.norm(a)
+    b_norm = np.linalg.norm(b)
+    similiarity = np.dot(a, b.T)/(a_norm * b_norm)
+
+    return similiarity
 
 
 def time_spent():
@@ -195,16 +205,24 @@ def get_dir_item_set(dir_name, file_postfix=".pkl"):
 
 
 
-if __name__ == '__main__':
-    model = Word2Vec.load("../models/w2v/b1.mod")
-    vec1 = get_w2v_vector("微博", model)
-    vec2 = get_w2v_vector("热搜", model)
-    print(np.linalg.norm(vec2-vec1))
-    print(model.wv.similarity("微博", "热搜"))
+def get_chorus(input_file, n_fft=2**14, clip_length=15):
+    '''
+    寻找歌曲副歌部分的起始时间
+    param: clip_length: 指定副歌片段检测时长
+    return: best_chorus_start: 副歌起始时间
+    '''
+    y, sr = librosa.load(input_file)
+    song_length_sec = y.shape[0] / float(sr)
+    S = np.abs(librosa.stft(y, n_fft=n_fft))**2
+    chroma = librosa.feature.chroma_stft(S=S, sr=sr)
+    # chorus = (chorus_start, chorus_end)
+    chorus = find_chorus(chroma, sr, song_length_sec, clip_length=clip_length)
 
-    vec1 = get_w2v_vector("抖音", model)
-    vec2 = get_w2v_vector("快手", model)
-    print(np.linalg.norm(vec2-vec1))
-    print(model.wv.similarity("抖音", "快手"))
+    return chorus
+
+
+
+if __name__ == '__main__':
+    pass
 
 

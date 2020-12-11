@@ -90,7 +90,7 @@ def model2(data_loader):
     dnn_classifier = DNNClassifier(config)
 
     # loss and optimizer
-    params = list(music_feature_extractor.parameters()) + list(intrinsic_feature_embed.parameters())
+    params = list(music_feature_extractor.parameters()) + list(intrinsic_feature_embed.parameters()) + list(dnn_classifier.parameters())
     optimizer = torch.optim.Adam(params, lr=config.lr)
 
     # 准备模型保存路径
@@ -159,8 +159,8 @@ def model3(data_loader):
 
     # 准备模型保存路径
     model_no = sys.argv[1]
-    if not os.path.exists("models/{}".format(model_no)):
-        os.makedirs("models/{}".format(model_no))
+    if not os.path.exists("models/3/{}".format(model_no)):
+        os.makedirs("models/3/{}".format(model_no))
 
     # 训练模型
     losses = {}
@@ -168,7 +168,7 @@ def model3(data_loader):
     for epoch in range(1, config.num_epochs+1):
         step = 0
         total_step = len(data_loader) # 一个epoch中的batch数目
-        for beta, mfcc, lyrics_vec, feature_words in tqdm(data_loader, ncols=80):
+        for label, beta, mfcc, lyrics_vec, feature_words in tqdm(data_loader, ncols=80):
             # beta: (batch_size,)
             # mfcc: (batch_size, 20, 1292)
             # lyrics_vec: (batch_size, 300)
@@ -229,13 +229,13 @@ def model4(data_loader):
     dnn_classifier = DNNClassifier(config)
 
     # loss and optimizer
-    params = list(music_feature_extractor.parameters()) + list(intrinsic_feature_embed.parameters()) + list(semantic_feature_embed.parameters())
+    params = list(music_feature_extractor.parameters()) + list(intrinsic_feature_embed.parameters()) + list(semantic_feature_embed.parameters()) + list(dnn_classifier.parameters())
     optimizer = torch.optim.Adam(params, lr=config.lr)
 
     # 准备模型保存路径
     model_no = sys.argv[1]
-    if not os.path.exists("models/3/{}".format(model_no)):
-        os.makedirs("models/3/{}".format(model_no))
+    if not os.path.exists("models/4/{}".format(model_no)):
+        os.makedirs("models/4/{}".format(model_no))
 
     # 训练模型
     losses = {}
@@ -268,7 +268,11 @@ def model4(data_loader):
             predict = dnn_classifier(embed1)
 
             # 计算损失
-            loss = my_loss2(embed1, pos_embeds2, beta) + F.cross_entropy(predict, label)
+            loss1 = my_loss2(embed1, pos_embeds2, beta)
+            loss2 = F.cross_entropy(predict, label)
+            # loss = loss1 + loss2
+            loss = loss1 + 10*loss2
+
 
             # zero_grad将上一次梯度更新的结果扔掉
             optimizer.zero_grad()
@@ -279,9 +283,9 @@ def model4(data_loader):
 
             # log
             if step % config.log_step == 0:
-                print("epoch [{}/{}], step [{}/{}], loss: {:.3f}".format(
-                    epoch, config.num_epochs, step, total_step, loss.item()))
-                losses["{}-{}".format(epoch, step)] = loss.item()
+                print("epoch [{}/{}], step [{}/{}], loss1: {:.3f}, loss2: {:.3f}".format(
+                    epoch, config.num_epochs, step, total_step, loss1.item(), loss2.item()))
+                losses["{}-{}".format(epoch, step)] = (loss1.item(), loss2.item())
 
         # save models
         if epoch % config.save_epoch == 0:
@@ -381,9 +385,7 @@ def model5(data_loader):
 def main():
     # data loader
     dataset, data_loader = get_loader(config)
-    model = model1(data_loader)
-
-
+    model = model2(data_loader)
 
 
 if __name__ == '__main__':

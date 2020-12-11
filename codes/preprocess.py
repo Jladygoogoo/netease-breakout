@@ -136,7 +136,7 @@ def tags_extractor(text, topk=8, w2v_model=None):
 
 	tags = []
 	if w2v_model is not None:
-		for x in counter.most_common(100):
+		for x in counter.most_common():
 			if not w2v_model.wv.__contains__(x[0]): continue
 			tags.append(x[0])
 			if len(tags)==topk:

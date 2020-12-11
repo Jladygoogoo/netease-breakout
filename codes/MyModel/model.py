@@ -53,6 +53,7 @@ class MusicFeatureExtractor(nn.Module):
 		# print(x.shape)
 		x = x.view(x.size(0), -1) # (batch_size, 7680)
 		# print(x.shape)
+		x = F.dropout(x) # p=0.5
 		output = self.fc(x)
 		return output
 
@@ -102,8 +103,10 @@ class DNNClassifier(nn.Module):
 		self.model = nn.Sequential(
 			nn.Linear(embedding_size, n_hidden_1),
 			nn.ReLU(),
+			nn.Dropout(),
 			nn.Linear(n_hidden_1, n_hidden_2),
 			nn.ReLU(),
+			nn.Dropout(),
 			nn.Linear(n_hidden_2, config.class_num)
 		)
 

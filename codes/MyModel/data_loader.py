@@ -13,6 +13,8 @@ from gensim.models import Doc2Vec, Word2Vec
 import torch
 import torch.utils.data as data
 
+from config import Config
+
 # 将codes包（__init__.py将文件夹变成包）载入import路径列表中
 sys.path.append("/Users/inkding/Desktop/netease2/codes")
 from utils import get_mfcc, get_d2v_vector, get_w2v_vector
@@ -25,7 +27,7 @@ class MyDataste(data.Dataset):
 	+ lyrics feature(doc2vec vector): (300,)
 	+ reviews feature(feature words): K * (300,)
 	'''
-	def __init__(self, config):
+	def __init__(self, config, train=True):
 		'''
 		+ breakouts: 爆发点的数组集合，每个爆发点以字典的形式记录（track_id, date, beta, reviews_num, feature_words）
 		+ ids: 爆发点的索引，用于__getitem__方法
@@ -33,12 +35,18 @@ class MyDataste(data.Dataset):
 		+ w2v/d2v: 预训练Word2Vec和Doc2Vec模型
 		'''
 		self.config = config
-		self.ids = list(range(config.breakout_size + config.no_breakout_size))
 		self.conn = MyConn()
-		self.breakouts = random.sample([r[0] for r in self.conn.query(targets=["breakout_id"], conditions={"have_words": 1, "have_rawmusic":1}, table="breakouts")], 
-										config.breakout_size)
-		self.no_breakouts = random.sample(open(config.no_breakouts_file).read().splitlines(),
-										config.no_breakout_size)
+
+		if train:
+			self.breakouts = open(config.breakouts_id_train).read().splitlines()
+			self.no_breakouts = open(config.no_breakouts_id_train).read().splitlines()
+		else:
+			self.breakouts = open(config.breakouts_id_test).read().splitlines()
+			self.no_breakouts = open(config.no_breakouts_id_test).read().splitlines()
+
+		self.ids = list(range(len(self.breakouts)+len(self.no_breakouts)))
+		print(len(self.breakouts)+len(self.no_breakouts))
+
 		self.d2v_model = Doc2Vec.load(config.d2v_path)
 		self.w2v_model = Word2Vec.load(config.w2v_path)
 		
@@ -47,25 +55,24 @@ class MyDataste(data.Dataset):
 		'''
 		必须自定义，使用index获取成对数据
 		'''
-		if index<self.config.breakout_size:
+		if index<len(self.breakouts):
 			label = 1
-			breakout_id = self.breakouts[index]
+			id_ = self.breakouts[index]
 			track_id, beta = self.conn.query(targets=["track_id", "beta"], table="breakouts",
-												conditions={"breakout_id":breakout_id})[0]
+												conditions={"id":id_})[0]
 			feature_words = self.conn.query(targets=["feature_words"], table="breakouts_feature_words_1",
-												conditions={"breakout_id":breakout_id})[0][0].split()
+												conditions={"breakout_id":id_})[0][0].split()
 		else:
 			label = 0
-			index = index - self.config.breakout_size
-			track_id = self.no_breakouts[index]
+			index = index - len(self.breakouts)
+			id_ = self.no_breakouts[index]
+			track_id = id_.split('-')[0]
 			beta = 1
-			# feature_words = self.conn.query(targets=["feature_words"], table="no_breakout_feature_words-1",
-			# 									conditions={"track_id":track_id})[0][0].split()
-			feature_words = ""
+			feature_words = self.conn.query(targets=["feature_words"], table="no_breakouts_feature_words_1",
+												conditions={"id":id_})[0][0].split()
 
 		rawmusic_path, lyrics_path = self.conn.query(
 			targets=["rawmusic_path", "lyrics_path"], conditions={"track_id": track_id})[0]
-		lyrics_path = "/Volumes/nmusic/NetEase2020/data" + lyrics_path
 
 		mfcc = torch.Tensor(get_mfcc(rawmusic_path))
 		lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
@@ -81,13 +88,14 @@ class MyDataste(data.Dataset):
 
 
 
-def get_loader(config):
+def get_loader(config, train=True):
 	'''
 	为MyDataset返回torch.utils.data.DataLoader对象
 	'''
-	my_dataset = MyDataste(config)
+	my_dataset = MyDataste(config, train=train)
 	data_loader = data.DataLoader(dataset=my_dataset,
-								batch_size=config.batch_size) #, shuffle=True
+								batch_size=config.batch_size,
+								shuffle=True)
 
 	return my_dataset, data_loader
 
@@ -96,19 +104,13 @@ def get_loader(config):
 
 
 if __name__ == '__main__':
-	json_path = "/Users/inkding/Desktop/netease2/data/breakouts-u1.json"
-	d2v_path = "/Users/inkding/Desktop/netease2/models/d2v/d2v_a1.mod"
-	w2v_path = "/Users/inkding/Desktop/partial_netease/models/word2vec/b1.mod"
-	batch_size = 32
-	dataset, data_loader = get_loader(json_path=json_path,
-										d2v_path=d2v_path, 
-										w2v_path=w2v_path,
-										batch_size=batch_size)
+	config = Config()
+	dataset, data_loader = get_loader(config)
 	
 
-
-	# for i, (beta, mfcc, lyrics_vec, feature_words) in enumerate(data_loader):
-	# 	pass
+	for i, (label, beta, mfcc, lyrics_vec, feature_words) in enumerate(data_loader):
+		print(lyrics_vec[0]-lyrics_vec[1])
+		break
 
 	# conn = MyConn()
 	# tracks = set()

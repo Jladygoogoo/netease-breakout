@@ -1,0 +1,155 @@
+n_clusters: 5
+inertia: 111586.36399867097
+silhouette_score: 0.5626158488677308
+mean-average_reviews_num: 5.553, mean-breakouts_num: 1.276, mean-blevel: 2.354, size: 1749
+mean-average_reviews_num: 19.525, mean-breakouts_num: 1.872, mean-blevel: 1.927, size: 895
+mean-average_reviews_num: 39.008, mean-breakouts_num: 2.713, mean-blevel: 1.678, size: 457
+mean-average_reviews_num: 70.565, mean-breakouts_num: 4.767, mean-blevel: 1.371, size: 150
+mean-average_reviews_num: 127.448, mean-breakouts_num: 7.200, mean-blevel: 1.293, size: 35
+
+n_clusters: 6
+inertia: 80023.1190592613
+silhouette_score: 0.5334533561764399
+mean-average_reviews_num: 4.629, mean-breakouts_num: 1.247, mean-blevel: 2.368, size: 1503
+mean-average_reviews_num: 15.250, mean-breakouts_num: 1.701, mean-blevel: 2.079, size: 866
+mean-average_reviews_num: 29.210, mean-breakouts_num: 2.296, mean-blevel: 1.753, size: 520
+mean-average_reviews_num: 48.128, mean-breakouts_num: 3.110, mean-blevel: 1.564, size: 264
+mean-average_reviews_num: 77.178, mean-breakouts_num: 5.121, mean-blevel: 1.327, size: 99
+mean-average_reviews_num: 128.231, mean-breakouts_num: 7.206, mean-blevel: 1.294, size: 34
+
+n_clusters: 7
+inertia: 63082.91212312256
+silhouette_score: 0.5066531430719199
+mean-average_reviews_num: 3.635, mean-breakouts_num: 1.198, mean-blevel: 2.387, size: 1212
+mean-average_reviews_num: 11.709, mean-breakouts_num: 1.597, mean-blevel: 2.205, size: 877
+mean-average_reviews_num: 22.402, mean-breakouts_num: 1.904, mean-blevel: 1.837, size: 543
+mean-average_reviews_num: 35.034, mean-breakouts_num: 2.636, mean-blevel: 1.686, size: 341
+mean-average_reviews_num: 52.355, mean-breakouts_num: 3.383, mean-blevel: 1.556, size: 193
+mean-average_reviews_num: 79.178, mean-breakouts_num: 5.000, mean-blevel: 1.347, size: 86
+mean-average_reviews_num: 128.231, mean-breakouts_num: 7.206, mean-blevel: 1.294, size: 34
+
+n_clusters: 8
+inertia: 50597.90720847229
+silhouette_score: 0.5003262974563306
+mean-average_reviews_num: 3.595, mean-breakouts_num: 1.198, mean-blevel: 2.390, size: 1200
+mean-average_reviews_num: 11.457, mean-breakouts_num: 1.584, mean-blevel: 2.215, size: 856
+mean-average_reviews_num: 21.441, mean-breakouts_num: 1.869, mean-blevel: 1.869, size: 519
+mean-average_reviews_num: 33.093, mean-breakouts_num: 2.522, mean-blevel: 1.699, size: 358
+mean-average_reviews_num: 48.944, mean-breakouts_num: 3.064, mean-blevel: 1.580, size: 204
+mean-average_reviews_num: 70.655, mean-breakouts_num: 4.989, mean-blevel: 1.351, size: 92
+mean-average_reviews_num: 101.849, mean-breakouts_num: 5.558, mean-blevel: 1.343, size: 43
+mean-average_reviews_num: 149.828, mean-breakouts_num: 8.929, mean-blevel: 0.984, size: 14
+
+n_clusters: 9
+inertia: 41883.53374324821
+silhouette_score: 0.4852281247667509
+mean-average_reviews_num: 3.364, mean-breakouts_num: 1.179, mean-blevel: 2.386, size: 1128
+mean-average_reviews_num: 10.401, mean-breakouts_num: 1.557, mean-blevel: 2.275, size: 795
+mean-average_reviews_num: 18.686, mean-breakouts_num: 1.741, mean-blevel: 1.905, size: 501
+mean-average_reviews_num: 28.387, mean-breakouts_num: 2.297, mean-blevel: 1.765, size: 374
+mean-average_reviews_num: 40.385, mean-breakouts_num: 2.833, mean-blevel: 1.655, size: 234
+mean-average_reviews_num: 55.532, mean-breakouts_num: 3.601, mean-blevel: 1.487, size: 138
+mean-average_reviews_num: 78.404, mean-breakouts_num: 4.882, mean-blevel: 1.296, size: 76
+mean-average_reviews_num: 111.843, mean-breakouts_num: 6.276, mean-blevel: 1.482, size: 29
+mean-average_reviews_num: 154.739, mean-breakouts_num: 9.273, mean-blevel: 0.977, size: 11
+
+n_clusters: 10
+inertia: 35459.12018098668
+silhouette_score: 0.46693957437979283
+mean-average_reviews_num: 3.002, mean-breakouts_num: 1.169, mean-blevel: 2.392, size: 1009
+mean-average_reviews_num: 9.004, mean-breakouts_num: 1.420, mean-blevel: 2.304, size: 734
+mean-average_reviews_num: 15.758, mean-breakouts_num: 1.798, mean-blevel: 2.038, size: 504
+mean-average_reviews_num: 24.188, mean-breakouts_num: 1.962, mean-blevel: 1.792, size: 396
+mean-average_reviews_num: 34.055, mean-breakouts_num: 2.629, mean-blevel: 1.726, size: 280
+mean-average_reviews_num: 46.082, mean-breakouts_num: 2.828, mean-blevel: 1.599, size: 163
+mean-average_reviews_num: 59.901, mean-breakouts_num: 4.266, mean-blevel: 1.445, size: 94
+mean-average_reviews_num: 79.972, mean-breakouts_num: 4.955, mean-blevel: 1.296, size: 66
+mean-average_reviews_num: 109.537, mean-breakouts_num: 6.115, mean-blevel: 1.537, size: 26
+mean-average_reviews_num: 149.828, mean-breakouts_num: 8.929, mean-blevel: 0.984, size: 14
+
+n_clusters: 11
+inertia: 30984.818804451854
+silhouette_score: 0.45187782789733083
+mean-average_reviews_num: 2.839, mean-breakouts_num: 1.169, mean-blevel: 2.406, size: 954
+mean-average_reviews_num: 8.318, mean-breakouts_num: 1.380, mean-blevel: 2.300, size: 686
+mean-average_reviews_num: 14.370, mean-breakouts_num: 1.761, mean-blevel: 2.099, size: 510
+mean-average_reviews_num: 21.690, mean-breakouts_num: 1.849, mean-blevel: 1.818, size: 365
+mean-average_reviews_num: 29.753, mean-breakouts_num: 2.323, mean-blevel: 1.795, size: 291
+mean-average_reviews_num: 39.724, mean-breakouts_num: 2.925, mean-blevel: 1.671, size: 199
+mean-average_reviews_num: 52.255, mean-breakouts_num: 3.044, mean-blevel: 1.505, size: 137
+mean-average_reviews_num: 68.752, mean-breakouts_num: 5.114, mean-blevel: 1.426, size: 70
+mean-average_reviews_num: 87.611, mean-breakouts_num: 5.025, mean-blevel: 1.192, size: 40
+mean-average_reviews_num: 117.174, mean-breakouts_num: 6.440, mean-blevel: 1.480, size: 25
+mean-average_reviews_num: 158.943, mean-breakouts_num: 9.333, mean-blevel: 0.777, size: 9
+
+n_clusters: 12
+inertia: 27351.891855701146
+silhouette_score: 0.4509862395589364
+mean-average_reviews_num: 2.839, mean-breakouts_num: 1.169, mean-blevel: 2.406, size: 954
+mean-average_reviews_num: 8.305, mean-breakouts_num: 1.379, mean-blevel: 2.304, size: 683
+mean-average_reviews_num: 14.316, mean-breakouts_num: 1.766, mean-blevel: 2.091, size: 508
+mean-average_reviews_num: 21.544, mean-breakouts_num: 1.831, mean-blevel: 1.823, size: 361
+mean-average_reviews_num: 29.152, mean-breakouts_num: 2.317, mean-blevel: 1.802, size: 271
+mean-average_reviews_num: 37.586, mean-breakouts_num: 2.744, mean-blevel: 1.642, size: 180
+mean-average_reviews_num: 47.354, mean-breakouts_num: 2.829, mean-blevel: 1.640, size: 129
+mean-average_reviews_num: 58.651, mean-breakouts_num: 4.296, mean-blevel: 1.430, size: 81
+mean-average_reviews_num: 73.265, mean-breakouts_num: 4.870, mean-blevel: 1.427, size: 54
+mean-average_reviews_num: 89.918, mean-breakouts_num: 5.032, mean-blevel: 1.233, size: 31
+mean-average_reviews_num: 117.174, mean-breakouts_num: 6.440, mean-blevel: 1.480, size: 25
+mean-average_reviews_num: 158.943, mean-breakouts_num: 9.333, mean-blevel: 0.777, size: 9
+
+n_clusters: 13
+inertia: 24484.534328855625
+silhouette_score: 0.4511379216082571
+mean-average_reviews_num: 2.822, mean-breakouts_num: 1.168, mean-blevel: 2.407, size: 948
+mean-average_reviews_num: 8.205, mean-breakouts_num: 1.381, mean-blevel: 2.295, size: 672
+mean-average_reviews_num: 14.168, mean-breakouts_num: 1.759, mean-blevel: 2.112, size: 518
+mean-average_reviews_num: 21.475, mean-breakouts_num: 1.818, mean-blevel: 1.824, size: 368
+mean-average_reviews_num: 29.152, mean-breakouts_num: 2.317, mean-blevel: 1.802, size: 271
+mean-average_reviews_num: 37.696, mean-breakouts_num: 2.739, mean-blevel: 1.634, size: 184
+mean-average_reviews_num: 47.861, mean-breakouts_num: 2.857, mean-blevel: 1.623, size: 133
+mean-average_reviews_num: 59.508, mean-breakouts_num: 4.368, mean-blevel: 1.494, size: 76
+mean-average_reviews_num: 73.824, mean-breakouts_num: 5.000, mean-blevel: 1.372, size: 52
+mean-average_reviews_num: 90.186, mean-breakouts_num: 5.000, mean-blevel: 1.230, size: 30
+mean-average_reviews_num: 113.112, mean-breakouts_num: 6.000, mean-blevel: 1.511, size: 20
+mean-average_reviews_num: 140.136, mean-breakouts_num: 8.100, mean-blevel: 0.924, size: 10
+mean-average_reviews_num: 174.058, mean-breakouts_num: 11.000, mean-blevel: 1.133, size: 4
+
+n_clusters: 14
+inertia: 21900.553675403313
+silhouette_score: 0.41255213118686773
+mean-average_reviews_num: 2.267, mean-breakouts_num: 1.124, mean-blevel: 2.407, size: 748
+mean-average_reviews_num: 6.350, mean-breakouts_num: 1.312, mean-blevel: 2.347, size: 596
+mean-average_reviews_num: 10.856, mean-breakouts_num: 1.594, mean-blevel: 2.256, size: 483
+mean-average_reviews_num: 16.071, mean-breakouts_num: 1.713, mean-blevel: 2.030, size: 390
+mean-average_reviews_num: 22.459, mean-breakouts_num: 1.928, mean-blevel: 1.767, size: 305
+mean-average_reviews_num: 29.482, mean-breakouts_num: 2.355, mean-blevel: 1.792, size: 262
+mean-average_reviews_num: 37.861, mean-breakouts_num: 2.718, mean-blevel: 1.630, size: 177
+mean-average_reviews_num: 47.861, mean-breakouts_num: 2.857, mean-blevel: 1.623, size: 133
+mean-average_reviews_num: 59.508, mean-breakouts_num: 4.368, mean-blevel: 1.494, size: 76
+mean-average_reviews_num: 73.824, mean-breakouts_num: 5.000, mean-blevel: 1.372, size: 52
+mean-average_reviews_num: 90.186, mean-breakouts_num: 5.000, mean-blevel: 1.230, size: 30
+mean-average_reviews_num: 113.112, mean-breakouts_num: 6.000, mean-blevel: 1.511, size: 20
+mean-average_reviews_num: 140.136, mean-breakouts_num: 8.100, mean-blevel: 0.924, size: 10
+mean-average_reviews_num: 174.058, mean-breakouts_num: 11.000, mean-blevel: 1.133, size: 4
+
+n_clusters: 15
+inertia: 20142.178070105703
+silhouette_score: 0.3960018164015144
+mean-average_reviews_num: 2.104, mean-breakouts_num: 1.126, mean-blevel: 2.406, size: 689
+mean-average_reviews_num: 5.793, mean-breakouts_num: 1.295, mean-blevel: 2.367, size: 560
+mean-average_reviews_num: 10.027, mean-breakouts_num: 1.462, mean-blevel: 2.268, size: 498
+mean-average_reviews_num: 14.886, mean-breakouts_num: 1.833, mean-blevel: 2.059, size: 384
+mean-average_reviews_num: 20.440, mean-breakouts_num: 1.741, mean-blevel: 1.887, size: 282
+mean-average_reviews_num: 25.897, mean-breakouts_num: 2.114, mean-blevel: 1.777, size: 219
+mean-average_reviews_num: 31.640, mean-breakouts_num: 2.500, mean-blevel: 1.746, size: 182
+mean-average_reviews_num: 38.655, mean-breakouts_num: 2.767, mean-blevel: 1.591, size: 150
+mean-average_reviews_num: 47.615, mean-breakouts_num: 2.828, mean-blevel: 1.669, size: 122
+mean-average_reviews_num: 58.651, mean-breakouts_num: 4.296, mean-blevel: 1.430, size: 81
+mean-average_reviews_num: 73.265, mean-breakouts_num: 4.870, mean-blevel: 1.427, size: 54
+mean-average_reviews_num: 89.918, mean-breakouts_num: 5.032, mean-blevel: 1.233, size: 31
+mean-average_reviews_num: 113.112, mean-breakouts_num: 6.000, mean-blevel: 1.511, size: 20
+mean-average_reviews_num: 140.136, mean-breakouts_num: 8.100, mean-blevel: 0.924, size: 10
+mean-average_reviews_num: 174.058, mean-breakouts_num: 11.000, mean-blevel: 1.133, size: 4
+
+[Finished in 6.0s]
