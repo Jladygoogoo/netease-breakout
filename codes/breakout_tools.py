@@ -7,8 +7,11 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from gensim.models import Word2Vec
+
 from utils import get_every_day, to_date
 from connect_db import MyConn
+from preprocess import tags_extractor
 
 
 
@@ -223,9 +226,22 @@ def view_reviews_num_curve(track_id, min_reviews=200, save_path=None):
     plt.close()
 
 
+def get_specific_reviews(track_id, date):
+    conn = MyConn()
+    w2v_model = Word2Vec.load("../models/w2v/b1.mod")
+    filepath = "/Volumes/nmusic/NetEase2020/data" + conn.query(targets=["reviews_path"], conditions={"track_id":track_id}, fetchall=False)[0]
+    df = get_reviews_df(filepath)
+    reviews = df[df["date"]==date]["content"].values
+    reviews = "\n".join(reviews)
+    top_words = tags_extractor(reviews, topk=30, w2v_model=w2v_model)
+    print(top_words)
+    
+
+
 
 def main():
-    view_reviews_num_curve("108273")
+    # view_reviews_num_curve("108273")
+    get_specific_reviews("1791431", "2016-08-29")
 
 if __name__ == '__main__':
     main()

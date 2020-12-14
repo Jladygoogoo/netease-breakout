@@ -8,17 +8,17 @@ from gensim.models import Word2Vec
 from preprocess import tags_extractor, W2VSentenceGenerator
 
 
-def train_w2v(read_path, save_path, window, iters=6):
+def train(read_path, save_path, window, iters=5, workers=6):
 	logging.basicConfig(level=logging.INFO, format='%(asctime)s : %(levelname)s : %(message)s', 
 						datefmt='%m-%d %H:%M:%S', filename='../logs/w2v.log')
-	model = Word2Vec(W2VSentenceGenerator(read_path,file_is_sent=True),
+	model = Word2Vec(W2VSentenceGenerator(read_path, file_is_sent=True),
 					size=300, min_count=20, window=window, iter=iters,
-					workers=6, seed=21)
+					workers=workers, seed=21)
 	model.save(save_path)
 	print("\nmodel saved.")
 
 
-def run_w2v(model_path):
+def run(model_path):
 	model = Word2Vec.load(model_path)
 	print("loading from {}".format(model_path))
 
@@ -35,7 +35,7 @@ def run_w2v(model_path):
 			sys.exit(0)
 
 
-def evaluate_w2v(model_path,testing_path,size=100,topk=10):
+def evaluate(model_path,testing_path,size=100,topk=10):
 	model = Word2Vec.load(model_path)
 	print("loading from {}".format(model_path))
 	print("evaluating scale: ",size)
@@ -83,10 +83,10 @@ def evaluate_w2v(model_path,testing_path,size=100,topk=10):
 
 if __name__ == '__main__':
 	read_path = '/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews_text/'
-	model_path = '../models/w2v/c1.mod'
+	model_path = '../models/w2v/c2.mod'
 	train(read_path=read_path, save_path=model_path,
-		window=2)
-	print(evaluate(model_path,read_path))
+		window=2, iters=3, workers=6)
+	# print(evaluate(model_path,read_path))
 	# run(model_path)
 	# template = '../models/word2vec/abs_word2vec_{}.mod'
 	# models_path = [template.format(i) for i in (2,10,20)]

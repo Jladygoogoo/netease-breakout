@@ -2,11 +2,15 @@ import os
 import jieba
 import re
 import json
+from tqdm import tqdm
 import pickle
+import random
 import numpy as np 
 from collections import Counter 
 from gensim import models
 import pymysql
+
+jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
 
 # ============ #
 # = 评论预处理 = #
@@ -48,7 +52,6 @@ def raw_cut(text, min_size = 2):
 
 # 基本切词
 def cut(text, join_en=True, deep_cut=False):
-	jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/sup_dict.txt")
 
 	words = []
 	# 处理英文
@@ -56,14 +59,12 @@ def cut(text, join_en=True, deep_cut=False):
 	if join_en:
 		for en_ws in re.findall(r'[\u4e00-\u9fa5 ]*([a-zA-z ]+)[\u4e00-\u9fa5 ]*' ,text):
 			en_w = '-'.join(en_ws.split())
-			if len(en_w)>1:
+			if len(set(en_w))>1:
 				words.append(en_w)
-		text = re.sub(r'[a-zA-z]', '', text)
+		text = re.sub(r'[a-zA-z ]', '', text)
 
 	# 处理中文
 	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
-	if deep_cut:
-		stops.extend(open("/Users/inkding/Desktop/netease2/resources/rubbish_tags.txt").read().splitlines())
 	for cn_w in jieba.cut(text):
 		if len(cn_w)>=2 and cn_w not in stops:
 			words.append(cn_w)
@@ -73,16 +74,18 @@ def cut(text, join_en=True, deep_cut=False):
 
 # 为w2v模型封装生成器
 class W2VSentenceGenerator():
-	def __init__(self,path,min_size=2,file_is_sent=True):
+	def __init__(self,path, min_size=2, file_is_sent=True):
 		self.path = path
 		self.min_size = min_size
 		self.file_is_sent = file_is_sent
 
 	def __iter__(self):
-		for root,dirs,files in os.walk(self.path):
+		for root, dirs, files in os.walk(self.path):
 			for file in files:
 				if not '.txt' in file: continue
-				text = replace_noise(open(os.path.join(root,file)).read()[:10000])
+				reviews = open(os.path.join(root,file)).read().splitlines()
+				# 每首歌的评论最多选取 1000 条（采样）
+				text = replace_noise("\n".join(random.sample(reviews, min(1000, len(reviews)))))
 
 				# 将整个文档看作一个句子
 				if self.file_is_sent:
@@ -200,5 +203,5 @@ def extract_lyrics_as_files(tracks_set, write_dir):
 
 
 if __name__ == "__main__":
-	path = "/Users/inkding/Desktop/partial_netease/data/proxied_breakouts_text/0/0"
-
+	text = "日推第一！终于给我推人声了。"
+	print(tags_extractor(text))

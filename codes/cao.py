@@ -1,6 +1,8 @@
 import os
+import time
 import json
 import pandas as pd 
+import numpy as np
 from connect_db import MyConn
 import random
 random.seed(21)
@@ -97,6 +99,48 @@ def check_lyrics():
 
 
 
+def rubbish_reviews_filter():
+    conn = MyConn()
+    words_counter = Counter()
+
+    for res in conn.query(targets=["feature_words"], table="breakouts_feature_words_1"):
+        feature_words = res[0].split()
+        words_counter.update(feature_words)
+    words_counter_size = sum(words_counter.values())
+    words_counter_d = dict(map(lambda p:(p[0], p[1]/words_counter_size), words_counter.most_common()))
+
+    special_words = open("../resources/special_words.txt").read().splitlines()
+
+    output = []
+    # 计算平均词频
+    for res in conn.query(targets=["id","feature_words"], table="breakouts_feature_words_1"):
+        beta, release_drive = conn.query(targets=["beta", "release_drive"], table="breakouts", conditions={"id": res[0]}, fetchall=False)
+        if release_drive:
+            continue
+        feature_words = res[1].split()
+        words = list(filter(lambda x:x not in special_words, feature_words))
+        if len(words)<len(feature_words): 
+            continue
+        rubbish_score = np.mean([words_counter_d[w] for w in words])
+        output.append((rubbish_score, res[0], beta, res[1]))
+
+    output.sort(key=lambda x:x[0], reverse=True)
+    for item in output:
+        print(item)
+
+
+
+def test_read_time():
+    dir_ = "/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews_text/1/0"
+    t = time.time()
+    for file in os.listdir(dir_):
+        if "DS" in file: continue
+        # text = open(os.path.join(dir_, file)).read()[:10000]
+        text = open(os.path.join(dir_, file)).read().splitlines()
+        text = "\n".join(random.sample(text, min(2000, len(text))))
+    print(time.time()-t)
+
+
 
 if __name__ == '__main__':
     # check_feature_words()
@@ -105,5 +149,8 @@ if __name__ == '__main__':
     # have_words = [r[0] for r in conn.query(table="no_breakouts_feature_words_1", targets=["id"])]
     # for id_ in have_words:
     #     conn.update(table="no_breakouts", settings={"have_words":1}, conditions={"id":id_})
-    update_feature_words()
+    # update_feature_words()
+    # rubbish_reviews_filter()
+    test_read_time()
+
 
