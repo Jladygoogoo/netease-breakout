@@ -83,9 +83,9 @@ def evaluate(model_path,testing_path,size=100,topk=10):
 
 if __name__ == '__main__':
 	read_path = '/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews_text/'
-	model_path = '../models/w2v/c2.mod'
+	model_path = '../models/w2v/c4.mod'
 	train(read_path=read_path, save_path=model_path,
-		window=2, iters=3, workers=6)
+		window=2, iters=4, workers=6)
 	# print(evaluate(model_path,read_path))
 	# run(model_path)
 	# template = '../models/word2vec/abs_word2vec_{}.mod'

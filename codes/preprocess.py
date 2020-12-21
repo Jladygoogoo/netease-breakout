@@ -17,6 +17,9 @@ jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
 # ============ #
 
 def replace_noise(text):
+	# 除去[*]里面的表情
+	text = re.sub(r"\[.+\]", '', text)
+
 	# 除去标点符号
 	# 注意颜文字中的特殊符号
 	puncs = open("/Users/inkding/Desktop/netease2/resources/punctuations.txt").read().splitlines()
@@ -51,20 +54,22 @@ def raw_cut(text, min_size = 2):
 
 
 # 基本切词
-def cut(text, join_en=True, deep_cut=False):
-
+def cut(text, join_en=True):
+	'''
+	中英文分别处理（不考虑中英文先后顺序）
+	连续英文用'-'连接，在切词时作为一个词
+	'''
 	words = []
+	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
 	# 处理英文
-	# 不考虑中英文先后顺序
 	if join_en:
 		for en_ws in re.findall(r'[\u4e00-\u9fa5 ]*([a-zA-z ]+)[\u4e00-\u9fa5 ]*' ,text):
 			en_w = '-'.join(en_ws.split())
-			if len(set(en_w))>1:
+			if len(set(en_w))>1 and en_w not in stops:
 				words.append(en_w)
-		text = re.sub(r'[a-zA-z ]', '', text)
+		text = re.sub(r'[a-zA-z]{2,}', '', text)
 
 	# 处理中文
-	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
 	for cn_w in jieba.cut(text):
 		if len(cn_w)>=2 and cn_w not in stops:
 			words.append(cn_w)
@@ -138,12 +143,15 @@ def tags_extractor(text, topk=8, w2v_model=None):
 	counter = Counter(words)
 
 	tags = []
+	# rubbish = open("../resources/rubbish_tags.txt").read().splitlines()
 	if w2v_model is not None:
 		for x in counter.most_common():
 			if not w2v_model.wv.__contains__(x[0]): continue
+			# if x[0] in rubbish: continue
 			tags.append(x[0])
 			if len(tags)==topk:
 				return tags
+		return tags
 	else:
 		tags = [x[0] for x in counter.most_common(topk)]
 		return tags
@@ -203,5 +211,5 @@ def extract_lyrics_as_files(tracks_set, write_dir):
 
 
 if __name__ == "__main__":
-	text = "日推第一！终于给我推人声了。"
-	print(tags_extractor(text))
+	text = "把证据发给FBI啊[大哭][大哭][大哭]"
+	print(cut(replace_noise(text)))

@@ -6,8 +6,11 @@ import numpy as np
 from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pyecharts.options as opts
+from pyecharts.charts import Line
 
 from gensim.models import Word2Vec
+
 
 from utils import get_every_day, to_date
 from connect_db import MyConn
@@ -214,16 +217,60 @@ def view_reviews_num_curve(track_id, min_reviews=200, save_path=None):
         ax.scatter(x=x, y=y, color=palette[i])
 
     text = '\n'.join(["count:{}, beta:{}".format(y_head[i], beta_head[i])
-                                                     for i in range(len(y_head))])
+                         for i in range(len(y_head))])
     ax.text(0, 1, text, verticalalignment="top", horizontalalignment="left", transform=ax.transAxes)
 
-
     if save_path:
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
         plt.savefig(save_path)
     else:
         plt.show()
 
     plt.close()
+
+
+def view_reviews_num_curve_html(track_id, save_dir, min_reviews=200):
+    '''
+    绘制给定歌曲id的评论数量变化曲线，利用pyecharts实现：
+    + 爆发点与时间的对应
+    + 爆发点与feature_words的对应
+    '''
+
+    conn = MyConn()
+    json_path = conn.query(targets=["reviews_path"], conditions={"track_id":track_id})
+    if len(json_path)>0: 
+        json_path = "/Volumes/nmusic/NetEase2020/data" + json_path[0][0]
+    else:
+        return None
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    df = get_reviews_df(json_path)
+    reviews_count, dates = get_reviews_count(df["date"].values)
+    breakouts_group = get_breakouts(reviews_count, min_reviews=min_reviews)
+    breakouts = [g[0] for g in breakouts_group]
+
+    x, y = dates, reviews_count
+    mark_points = []
+    for flag, breakout in enumerate(breakouts):
+        feature_words = conn.query(table="breakouts_feature_words_c3", targets=["filtered_feature_words"], 
+                                    conditions={"id":'-'.join([track_id, str(flag)])}, fetchall=False)[0]
+        px, beta = breakout
+        mark_points.append(opts.MarkPointItem(name="{}{}".format(dates[px], feature_words),
+                        coord=[dates[px], reviews_count[px]], value=beta))
+    c = (
+        Line()
+        .add_xaxis(x)
+        .add_yaxis(
+            "评论曲线",
+            y,
+            markpoint_opts=opts.MarkPointOpts(data=mark_points),
+        )
+        .set_global_opts(title_opts=opts.TitleOpts(title="{}".format(track_id)))
+        .render(os.path.join(save_dir, "{}.html".format(track_id)))
+    )
+
 
 
 def get_specific_reviews(track_id, date):
@@ -233,15 +280,37 @@ def get_specific_reviews(track_id, date):
     df = get_reviews_df(filepath)
     reviews = df[df["date"]==date]["content"].values
     reviews = "\n".join(reviews)
-    top_words = tags_extractor(reviews, topk=30, w2v_model=w2v_model)
-    print(top_words)
+    print(reviews)
+    # top_words = tags_extractor(reviews, topk=30, w2v_model=w2v_model)
+    # print(top_words)
     
+
+
+def get_breakouts_by_keywords(keywords, table, return_hit_word=False):
+    '''
+    查找包含指定关键词的爆发点（排除release_drive和fake）
+    默认返回爆发点的一维集合，如果设置return_hit_word=True则返回命中词，res = [(breakout_id, hit_word),]
+    '''
+    conn = MyConn()
+    res = []
+    for id_, text in conn.query(targets=["id", "feature_words"], table=table):
+        check = conn.query(table="breakouts", targets=["release_drive", "fake"], fetchall=False, conditions={"id": id_})
+        if check[0]==1 or check[1]==1:
+            continue
+        feature_words = text.split()
+        for w in keywords:
+            if w in feature_words:
+                res.append((id_, w))
+                break
+    if not return_hit_word:
+        return list(zip(*res))[0]
+    return res
 
 
 
 def main():
     # view_reviews_num_curve("108273")
-    get_specific_reviews("1791431", "2016-08-29")
+    get_specific_reviews("167880", "2019-01-01")
 
 if __name__ == '__main__':
     main()

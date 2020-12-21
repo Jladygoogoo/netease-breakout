@@ -29,81 +29,6 @@ def get_from_db(track_id, targets):
     return list(res[0])
 
 
-def prep_no_breakouts_data():
-    '''
-    description:
-        + 提取no_breakouts_points并存入数据库
-            - 每首歌曲至多抽取3个时间点（不满3个则是用全部）
-        + 将每个point对应的评论文本提取并保存为txt文件
-    params:
-        + r_path, w_path: 读写路径
-    '''
-
-    conn = MyConn()
-    r_path = "/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews/"
-    breakouts_tracks = set([r[0] for r in conn.query(table="breakouts", targets=["track_id"])])
-    # 保存路径设置
-    count = 0
-    prefix = "/Volumes/nmusic/NetEase2020/data/no_breakouts_text"
-    n_dir = 2
-    dir_size = (100, 100)
-
-    for root, dirs, files in os.walk(r_path):
-        for file in files:
-            try:
-                if "DS" in file: continue
-                filepath = os.path.join(root, file)
-                track_id = file[:-5]
-                if track_id in breakouts_tracks: 
-                    continue
-
-                if len(conn.query(table="no_breakouts", targets=["track_id"], conditions={"track_id": track_id})) != 0:
-                    continue
-
-                df = get_reviews_df(filepath)
-                reviews_count, dates = get_reviews_count(df["date"].values)
-
-                no_breakouts_group = get_no_breakouts(reviews_count, min_reviews=200, thres=10)
-                # 抽样
-                samples = np.floor(np.linspace(0, len(no_breakouts_group)-1, min(len(no_breakouts_group), 3)))
-                no_breakouts_group = [no_breakouts_group[int(s)] for s in samples]
-
-                if len(no_breakouts_group)>0:
-                    # print(file, len(no_breakouts_group))
-                    for flag, group in enumerate(no_breakouts_group):
-                        # 基本信息上传至数据库
-                        # group: (left_index, right_index, reviews_acc)
-                        data = {
-                            "id": '-'.join([track_id, str(flag)]),
-                            "track_id": track_id,
-                            "flag": flag,
-                            "start_date": dates[group[0]],
-                            "end_date": dates[group[1]],
-                            "reviews_acc": group[2]
-                        }
-                        conn.insert(table="no_breakouts", settings=data)
-
-                        # 提取文字
-                        text = ""
-                        dir_ = assign_dir(prefix, n_dir, dir_size, flag=count)
-                        for point in range(group[0], group[1]):
-                            date = dates[point]
-                            text += get_breakouts_text(df, date)
-                        with open(os.path.join(dir_, "{}-{}.txt".format(file[:-5], flag)), 'w') as f:
-                            f.write(text)
-
-                        count += 1
-                        if count%100==0:
-                            print(count)
-
-            except KeyboardInterrupt:
-                print("interrupted by keyboard.")
-                return
-            except:
-                print(traceback.format_exc())
-                continue
-
-
 
 def get_main_tagged_tracks(r_path="../data/pucha/BorgCube2_65b1/BorgCube2_65b1.csv"):
     '''
@@ -168,29 +93,6 @@ def get_main_tagged_tracks(r_path="../data/pucha/BorgCube2_65b1/BorgCube2_65b1.c
 
     with open("../data/main_tagged_tracks/labels_dict.pkl", 'wb') as f:
         pickle.dump(main_tagged_tracks_d, f)
-
-
-
-
-def get_no_breakouts_tracks():
-    '''
-    获取未爆发歌曲
-    '''
-    sql = 'SELECT track_id FROM tracks WHERE first_review BETWEEN %s AND %s and reviews_num > %s and have_mp3=1 and have_lyrics=1'
-    
-    # 筛选条件：
-    # 至少在一年以前发布，至少有1000条评论的歌曲
-    candidates = get_tracks_set_db(sql=sql, conditions={"first_review1":"2013-01-01", "first_review2":"2019-02-01",
-                                             "reviews_num":1000})
-
-    breakouts_tracks = set(map(str, pd.read_json("../data/breakouts-0.json")["track_id"].unique()))
-
-    no_breakouts_tracks = candidates - candidates.intersection(breakouts_tracks)
-    print(len(no_breakouts_tracks))
-    no_breakouts_tracks = random.sample(no_breakouts_tracks, 7000)
-
-    with open("../data/no_breakouts_tracks.txt",'w') as f:
-        f.write('\n'.join(no_breakouts_tracks))
 
 
 def extract_rawmusic(tracks_set, prefix, flag0=0):
@@ -330,6 +232,51 @@ def upload_chorus_start():
 
 
 
+
+
+
+def upload_details():
+    '''
+    将歌曲的基本信息上传至数据库（歌曲名称、歌手姓名、专辑名称...）
+    '''
+    def extract_details(filename):
+        with open(filename) as f:
+            content = json.load(f)
+        details = {
+            "name": content["songs"][0]["name"],
+            "artist": " ".join([item["name"] for item in content["songs"][0]["ar"]]),
+            "pop": content["songs"][0]["pop"],
+            "album": content["songs"][0]["al"]["name"]
+        }
+        return details
+
+    read_path = "/Volumes/nmusic/NetEase2020/data/simple_proxied_tracks_details"
+    conn = MyConn()
+
+
+    for root, dirs, files in os.walk(read_path):
+        for file in files:
+            if "DS" in file: continue
+            filepath = os.path.join(root, file)
+            track_id = file[:-5]
+            try:
+                details = extract_details(filepath)
+            except Exception as e:
+                print(filepath)
+                # print(traceback.format_exc())
+                print(e)
+
+            # print(details)
+            conn.insert_or_update(table="details", settings={
+                                "track_id": track_id, 
+                                "name": details["name"],
+                                "artist": details["artist"],
+                                "album": details["album"],
+                                "pop": details["pop"]})
+
+
+
+
 def chorus_duration_distribution():
     conn = MyConn()
     sql = "SELECT chorus_start, chorus_end FROM tracks WHERE chorus_start IS NOT NULL AND chorus_end IS NOT NULL"
@@ -340,230 +287,6 @@ def chorus_duration_distribution():
 
     sns.displot(durations)
     plt.show()
-
-
-def get_breakouts_json():
-    path = "/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews"
-    json_path = "../data/breakouts-0.json"
-    w_prefix = "/Volumes/nmusic/NetEase2020/data/breakouts_text/breakouts-0"
-    n_dir = 2
-    dir_size = (100, 100)
-
-    # 把没有lyrics和mp3的去除
-    conn = MyConn()
-    res = conn.query(targets=["track_id"], conditions={"have_lyrics":1, "have_mp3":1})
-    backup_tracks = set()
-    for r in res:
-        backup_tracks.add(str(r[0]))
-
-    write_content = []
-    total_count = 0
-    for root,dirs,files in os.walk(path):
-        for file in files:
-            n = int(root.split('/')[-2])*100 + int(root.split('/')[-1])
-            if "DS" in file or file[:-5] not in backup_tracks:
-                continue
-            try:
-                track_id = file[:-5]
-                filepath = os.path.join(root, file)
-                df = get_reviews_df(filepath)
-                reviews_count, dates =  get_reviews_count(df["date"].values)
-
-                breakouts_group = get_breakouts(reviews_count, min_reviews=200)
-                breakouts = [g[0] for g in breakouts_group]
-                bdates = [dates[p[0]] for p in breakouts]
-
-                for i, p in enumerate(breakouts):
-                    beta = p[1]
-                    date = bdates[i]
-                    reviews_num = reviews_count[p[0]]
-                    btext = get_breakouts_text(df, date)
-                    w_path = os.path.join(
-                        assign_dir(prefix=w_prefix, n_dir=n_dir, dir_size=dir_size, flag=total_count),
-                        "{}-{}.txt".format(track_id, i)
-                    )
-                    # with open(w_path, 'w') as f:
-                    #   f.write(btext)
-                    write_content.append({
-                        "track_id": track_id,
-                        "flag": i,
-                        "beta": beta,
-                        "date": date,
-                        "reviews_num": reviews_num,
-                        "text_path": w_path
-                    })
-                    total_count += 1
-                    if total_count % 100 == 0:
-                        print("total_count = {}".format(total_count))
-                        if total_count==200:
-                            with open("../data/breakouts-00.json", 'w') as f:
-                                json.dump(write_content, f, ensure_ascii=False, indent=2)
-            except:
-                print(traceback.format_exc())
-                return
-
-    with open(json_path, 'w') as f:
-        json.dump(write_content, f, ensure_ascii=False, indent=2)
-
-
-def add_feature_words_to_json():
-    '''
-    基于text_path读取文本加入feature_words属性。
-    param: json_data_list: 格式参见 "../data/breakouts-0.json"
-    return: new_json_data_list: 新增feature_words属性后的数据
-    example:
-        item = {
-            "track_id": "4872534",
-            "flag": 0,
-            "beta": 394.4,
-            "date": "2018-03-05",
-            "reviews_num": 454,
-            "text_path": "/Volumes/nmusic/NetEase2020/data/breakouts_text/breakouts-0/0/0/4872534-0.txt",
-            "feature_words": ["打卡","机械","材料","成型","下课","可爱","铃声","学院","学校","下课铃"]
-        }
-    '''
-    w2v_model = Word2Vec.load("/Users/inkding/Desktop/partial_netease/models/word2vec/b1.mod")
-    for i in range(len(data)):
-        try:
-            text_path = data[i]["text_path"]
-            feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-            data[i]["feature_words"] = feature_words
-            print(i, data[i]["track_id"], feature_words)
-        except KeyboardInterrupt:
-            with open("../data/breakouts-3.json",'w') as f:
-                print(i)
-                new_data = data[:i]
-                json.dump(new_data, f, ensure_ascii=False, indent=2)    
-            return
-        except:
-            print(i, data[i]["track_id"],"ERROR")
-
-    with open("../data/breakouts-3.json",'w') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)    
-
-
-
-def add_feature_words_to_db():
-    '''
-    直接在数据库中更新feature_words，使用多进程
-    '''
-    def task(pid, task_args):
-        conn = MyConn()
-        w2v_model = Word2Vec.load("../models/w2v/b1.mod")
-        while 1:
-            task_args["lock"].acquire()
-            res = conn.query(targets=["breakout_id", "text_path"], conditions={"have_words":0}, 
-                    table="breakouts", fetchall=False)
-            if res is not None:
-                breakout_id, text_path = res
-                conn.update(table="breakouts",
-                            settings={"have_words": 1},
-                            conditions={"breakout_id": breakout_id})
-                task_args["lock"].release()
-
-                try:
-                    feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-                    conn.insert(table="breakouts_feature_words_1",
-                                settings={"breakout_id":breakout_id, "feature_words":" ".join(feature_words)})
-
-                    print("[Process-{}] breakout_id: {}, feature_words: {}".format(pid, breakout_id, feature_words))
-                except:
-                    conn.update(table="breakouts",
-                                settings={"have_words": 0},
-                                conditions={"breakout_id": breakout_id})
-
-            else:
-                task_args["lock"].release()
-                break
-
-    lock = PLock()
-    task_args = {"lock":lock}
-    process_group = ProcessGroup(task=task, n_procs=3, task_args=task_args)
-    process_group.start()
-
-
-
-def add_feature_words_to_db_2():
-    '''
-    直接在数据库中更新feature_words，使用多进程。对应no_breakouts。
-    '''
-    def task(pid, task_args):
-        conn = MyConn()
-        w2v_model = Word2Vec.load("../models/w2v/b1.mod")
-        while 1:
-            task_args["lock"].acquire()
-            res = conn.query(sql="SELECT id,text_path from no_breakouts WHERE have_words=0 AND text_path IS NOT NULL", 
-                    table="no_breakouts", fetchall=False)
-            if res is not None:
-                id_, text_path = res
-                if text_path is None: 
-                    task_args["lock"].release()
-                    continue
-                conn.update(table="no_breakouts",
-                            settings={"have_words": 1},
-                            conditions={"id": id_})
-                task_args["lock"].release()
-
-                try:
-                    feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-                    # print(text_path)
-                    # print(open(te xt_path).read())
-                    conn.insert(table="no_breakouts_feature_words_1",
-                                settings={"id":id_, "feature_words":" ".join(feature_words)})
-
-                    print("[Process-{}] id: {}, feature_words: {}".format(pid, id_, feature_words))
-                except KeyboardInterrupt:
-                    conn.update(table="no_breakouts",
-                                settings={"have_words": 0},
-                                conditions={"id": id_})
-                    return
-                except TypeError:
-                    print("TypeError", text_path)
-                    continue
-                except:
-                    print(traceback.format_exc())
-                    conn.update(table="no_breakouts",
-                                settings={"have_words": 0},
-                                conditions={"id": id_})
-                    continue
-                    
-
-            else:
-                task_args["lock"].release()
-                break
-
-    lock = PLock()
-    task_args = {"lock":lock}
-    process_group = ProcessGroup(task=task, n_procs=3, task_args=task_args)
-    process_group.start()
-
-
-def extract_no_breakouts_feature_words():
-    def task(pid, task_args):
-        conn = MyConn()
-        w2v_model = Word2Vec.load("../models/w2v/b1.mod")
-        while 1:
-            track_id = task_args["queue"].get()
-            # text_path = 
-            try:
-                feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-                conn.insert(table="breakouts_feature_words_1",
-                            settings={"breakout_id":breakout_id, "feature_words":" ".join(feature_words)})
-
-                print("[Process-{}] breakout_id: {}, feature_words: {}".format(pid, breakout_id, feature_words))
-            except:
-                conn.update(table="breakouts",
-                            settings={"have_words": 0},
-                            conditions={"breakout_id": breakout_id})
-                break
-
-            else:
-                task_args["lock"].release()
-                break
-    no_breakouts_tracks = open("../data/no_breakouts_tracks.txt").read().splitlines()
-    queue = PQueue()
-    for t in no_breakouts_tracks:
-        queue.put(t)
 
 
 
@@ -641,9 +364,10 @@ if __name__ == '__main__':
     # tracks_set = [r[0] for r in conn.query(targets=["track_id"], conditions={"have_mp3":1})]
     # tracks_set = random.sample(tracks_set, 300)
     # extract_rawmusic(tracks_set, prefix=path, flag0=300)
-    chorus_duration_distribution()
+    # chorus_duration_distribution()
     # upload_chorus_start()
 
-    # add_feature_words_to_db_2()
+    # add_feature_words_to_db()
     # prep_no_breakouts_data()
     # build_train_test_dataset()
+    upload_details()

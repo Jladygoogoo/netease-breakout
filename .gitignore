@@ -1,6 +1,7 @@
 # 根目录下文件
 /data/
 /logs/
+/DBpedia/
 
 # 中间目录下文件夹/文件
 models/
