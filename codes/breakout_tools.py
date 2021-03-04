@@ -120,6 +120,27 @@ def get_breakouts_text(df, date, max_reviews=2000):
     return '\n'.join(reviews)
 
 
+def get_reviews_num_df(json_path):
+	'''
+	new_df = pd.DataFrame(data, columns=["date", "year", "reviews_num", "is_peak"])
+	'''
+    df = get_reviews_df(json_path)
+    reviews_count, dates =  get_reviews_count(df["date"].values)
+    breakouts_group = get_breakouts(reviews_count, min_reviews=200)
+    peaks = [g[0][0] for g in breakouts_group]
+
+    data = []
+    for i in range(len(dates)):
+        is_peak = 0
+        if dates[i] in peaks: 
+            is_peak = 1 
+        line = [dates[i], dates[i][:4], reviews_count[i], is_peak]
+        data.append(line)
+
+    new_df = pd.DataFrame(data, columns=["date", "year", "reviews_num", "is_peak"])
+    # new_df.to_csv(csv_path, index=False)
+    return new_df
+
 
 def get_no_breakouts(sequence, window_size=15, thres=5, min_reviews=100):
     '''
@@ -280,9 +301,9 @@ def get_specific_reviews(track_id, date):
     df = get_reviews_df(filepath)
     reviews = df[df["date"]==date]["content"].values
     reviews = "\n".join(reviews)
-    print(reviews)
-    # top_words = tags_extractor(reviews, topk=30, w2v_model=w2v_model)
-    # print(top_words)
+    # print(reviews)
+    top_words = tags_extractor(reviews, topk=30, w2v_model=w2v_model)
+    print(top_words)
     
 
 
@@ -294,9 +315,9 @@ def get_breakouts_by_keywords(keywords, table, return_hit_word=False):
     conn = MyConn()
     res = []
     for id_, text in conn.query(targets=["id", "feature_words"], table=table):
-        check = conn.query(table="breakouts", targets=["release_drive", "fake"], fetchall=False, conditions={"id": id_})
-        if check[0]==1 or check[1]==1:
-            continue
+        # check = conn.query(table="breakouts", targets=["release_drive", "fake"], fetchall=False, conditions={"id": id_})
+        # if check[0]==1 or check[1]==1:
+        #     continue
         feature_words = text.split()
         for w in keywords:
             if w in feature_words:
@@ -310,8 +331,16 @@ def get_breakouts_by_keywords(keywords, table, return_hit_word=False):
 
 def main():
     # view_reviews_num_curve("108273")
-    get_specific_reviews("167880", "2019-01-01")
+    # get_specific_reviews("167880", "2019-01-01")
+    json_path = "/Volumes/nmusic/NetEase2020/data/simple_proxied_reviews/0/10/202377.json"
+    csv_path = "../data/reviews_num_csv/抖音/{}.csv".format(os.path.basename(json_path)[:-5])
+
+    df = get_reviews_num_df(json_path)
+    df.to_csv(csv_path, index=False)
+
 
 if __name__ == '__main__':
-    main()
+    # main()
+    for p in get_breakouts_by_keywords(["日推"], "breakouts_feature_words_c3")[:10]:
+    	print(p)
     

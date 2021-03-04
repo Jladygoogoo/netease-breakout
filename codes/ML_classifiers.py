@@ -33,7 +33,7 @@ from MyModel.config import Config
 
 
 # 二分类模型比较
-def compare_models():
+def compare_models(dataset_path):
 	# random forest
 
 	def basic_eval(y_test, y_pred, y_prob):
@@ -125,18 +125,21 @@ def compare_models():
 		
 
 	# 载入数据
-	# with open("../data/main_tagged_tracks/dataset_violent_less.pkl", 'rb') as f:
-	with open("../data/mymodel_data/dataset_embed-3-1000.pkl", 'rb') as f:
+	with open(dataset_path, 'rb') as f:
 		X,y = pickle.load(f)
 
-	X = list(map(lambda x:x.detach().numpy(), X))
+	print(len(X),len(y))
+	# print(X.shape,y.shape)
+	print(X[0].shape)
+
+	# X = list(map(lambda x:x.numpy(), X))
 	# 标准化
-	# X = StandardScaler().fit_transform(X)
+	X = StandardScaler().fit_transform(X)
 	# print(y)
-	# rf(X, y)
+	rf(X, y)
 	# svc(X, y)
-	# adaboost(X, y)
-	lgbm(X, y)
+	adaboost(X, y)
+	# lgbm(X, y)
 
 
 # 多分类模型比较
@@ -247,22 +250,12 @@ def compare_models_multiclass():
 	# rf(X, y)
 	lgbm(X, y)
 
-def compare_models_multilabels():
-
-	with open("../data/main_tagged_tracks/dataset_violent_multilabels.pkl", 'rb') as f:
-		X,y = pickle.load(f)
-	X = StandardScaler().fit_transform(X)
 
 
 
 if __name__ == '__main__':
-	# build_dataset()
-	# build_dataset_multiclass()
-	# build_dataset_less()
-	compare_models()
-	# compare_models_multiclass()
-	# compare_models_multilabels()
-	# build_dataset_embed()
+	dataset_path = "../data/dataset/mla600.pkl"
+	compare_models(dataset_path)
 
 
 

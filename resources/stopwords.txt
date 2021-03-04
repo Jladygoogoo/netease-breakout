@@ -1,3 +1,5 @@
+ah
+ayy
 able
 about
 above
@@ -44,12 +46,8 @@ around
 as
 aside
 ask
-asking
-associated
 at
-available
 away
-awfully
 be
 became
 because
@@ -61,16 +59,13 @@ before
 beforehand
 behind
 being
-believe
 below
 beside
 besides
 best
-better
 between
 beyond
 both
-brief
 but
 by
 came
@@ -81,8 +76,6 @@ cause
 causes
 certain
 certainly
-changes
-clearly
 cmon
 co
 com
@@ -116,6 +109,8 @@ dont
 down
 downwards
 during
+dee
+di
 each
 edu
 eg
@@ -233,6 +228,7 @@ kept
 know
 known
 knows
+la
 last
 lately
 later
@@ -246,7 +242,6 @@ lets
 like
 liked
 likely
-little
 look
 looking
 looks
@@ -273,7 +268,6 @@ namely
 nd
 near
 nearly
-necessary
 need
 needs
 neither
@@ -444,8 +438,6 @@ too
 took
 toward
 towards
-tried
-tries
 truly
 try
 trying
@@ -454,7 +446,6 @@ twice
 two
 un
 under
-unfortunately
 unless
 unlikely
 until
@@ -518,12 +509,18 @@ wish
 with
 within
 without
+woy
 wonder
 wont
 would
 wouldnt
+yah
 yes
 yet
+yo
+yor
+yoy
+yoyyoy
 you
 youd
 youll
@@ -537,6 +534,7 @@ yeah
 in
 hi
 ha
+hah
 go
 aye
 ma

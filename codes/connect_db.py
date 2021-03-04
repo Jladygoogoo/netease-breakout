@@ -40,8 +40,15 @@ class MyConn:
 					sql += " {}=%s".format(k)
 					if i<len(conditions)-1:
 						sql += " AND"
+
+		args = None
+		if settings:
+			args = tuple(settings.values())
+		if conditions:
+			args += tuple(conditions.values())
+
 		with self.conn.cursor() as cursor:
-			cursor.execute(sql, tuple(settings.values())+tuple(conditions.values()))
+				cursor.execute(sql, args=args)
 
 		self.conn.commit()
 
@@ -61,6 +68,9 @@ class MyConn:
 
 
 	def insert_or_update(self, settings=None, sql=None, table="tracks"):
+		'''
+		不存在则insert，存在则update。settings中包含键值
+		'''
 		if not sql:
 			sql = "REPLACE INTO {} SET".format(table)
 			for i, k in enumerate(settings):
@@ -72,6 +82,26 @@ class MyConn:
 			cursor.execute(sql, tuple(settings.values()))
 
 		self.conn.commit()
+
+
+	def delete(self, table="tracks", conditions=None, sql=None):
+		if not sql and not conditions:
+			print("Operation forbidden.")
+			return
+		if not sql:
+			sql = "DELETE FROM {}".format(table)
+			if conditions:
+				sql += " WHERE"
+				for i, k in enumerate(conditions):
+					sql += " {}=%s".format(k)
+					if i<len(conditions)-1:
+						sql += " AND"				
+		if conditions:
+			args = tuple(conditions.values())
+		with self.conn.cursor() as cursor:
+			cursor.execute(sql, args=args)
+		self.conn.commit()
+
 
 
 	def __del__(self):

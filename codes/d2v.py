@@ -23,4 +23,6 @@ def get_doc_vector(text, model):
 if __name__ == '__main__':
 	read_path = "/Volumes/nmusic/NetEase2020/data/proxied_lyrics"
 	log_path = "../logs/d2v.log"
-	train_d2v(read_path, log_path)
+	# train_d2v(read_path, log_path)
+	for r in TaggedSentenceGenerator(read_path):
+		print(r)

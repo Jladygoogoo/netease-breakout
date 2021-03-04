@@ -32,8 +32,9 @@ def replace_noise(text):
 
 	return text
 
-# 给2grams切词
+
 def raw_cut(text, min_size = 2):
+	# 给2grams切词
 	words = []
 	# 处理英文
 	# 不考虑中英文先后顺序
@@ -54,13 +55,15 @@ def raw_cut(text, min_size = 2):
 
 
 # 基本切词
-def cut(text, join_en=True):
+def cut(text, join_en=True, stops_sup=None, filter_number=False):
 	'''
 	中英文分别处理（不考虑中英文先后顺序）
 	连续英文用'-'连接，在切词时作为一个词
 	'''
 	words = []
 	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
+	if stops_sup:
+		stops = stops + stops_sup
 	# 处理英文
 	if join_en:
 		for en_ws in re.findall(r'[\u4e00-\u9fa5 ]*([a-zA-z ]+)[\u4e00-\u9fa5 ]*' ,text):
@@ -71,10 +74,28 @@ def cut(text, join_en=True):
 
 	# 处理中文
 	for cn_w in jieba.cut(text):
+		if filter_number and re.match(r"(\d+日?|第.+)", cn_w): 
+			continue
 		if len(cn_w)>=2 and cn_w not in stops:
 			words.append(cn_w)
 
 	return words
+
+
+
+def cut_en(text, stops_sup=[]):
+	'''
+	对英文进行切词
+	'''
+	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines() + stops_sup
+	clean_words = []
+	words = text.lower().split()
+	for w in words:
+		if w not in stops and len(w)>1:
+			clean_words.append(w)
+	return clean_words
+
+
 
 
 # 为w2v模型封装生成器
@@ -109,44 +130,45 @@ class W2VSentenceGenerator():
 # 为doc2vec模型封装生成器（加上文档标签和数目限制）
 # 歌词数据
 class TaggedSentenceGenerator():
-	def __init__(self,path,mode='train'):
-		self.path = path
-		self.mode = mode
+	'''
+	注意：中文歌词好说，正常分词即可，外文歌词注意只保留英文（非西语）
+	数据源：数据库（文件路径中并不是所有的歌词都可以用作训练）
+	'''
+	def __init__(self):
+		sql = "SELECT track_id, lyrics_path FROM tracks WHERE language IN ('en','ch')"
+		self.lyrics_path_set = [r[0] for r in MyConn().query(sql=sql)]
 
 	def __iter__(self):
 		flag = 0
-		tag2track = {}
-		for root, dirs, files in os.walk(self.path):
-			for file in files:
-				if "DS" in file: continue
-				with open(os.path.join(root, file)) as f:
-					content = json.load(f)
+		for i, track_id, lyrics_path in enumerate(self.lyrics_path_set):
+			if i%1000==0: print("{} files loaded.".format(i))
+
+			with open(filepath) as f:
+				content = json.load(filepath)
 				if "lrc" not in content or "lyric" not in content["lrc"]:
 					continue
 				text = replace_noise(content["lrc"]["lyric"])
 				words = cut(text, join_en=False)
+				if len(words)<10:
+					continue
 
 				yield models.doc2vec.TaggedDocument(words,[str(flag)])
 
-				flag += 1
-				if flag%100==0:
-					print("load {} files in total.".format(flag))
-
 
 # 提取句子中的top_tags
-def tags_extractor(text, topk=8, w2v_model=None):
+def tags_extractor(text, topk=8, w2v_model=None, stops_sup=None):
 	text = replace_noise(text)
 
 	words = []
 	for line in text.splitlines():
-		words.extend(cut(line))
+		words.extend(cut(line, stops_sup=stops_sup))
 	counter = Counter(words)
 
 	tags = []
 	# rubbish = open("../resources/rubbish_tags.txt").read().splitlines()
 	if w2v_model is not None:
 		for x in counter.most_common():
-			if not w2v_model.wv.__contains__(x[0]): continue
+			# if not w2v_model.wv.__contains__(x[0]): continue
 			# if x[0] in rubbish: continue
 			tags.append(x[0])
 			if len(tags)==topk:

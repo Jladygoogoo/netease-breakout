@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import sys
+import numpy as np
 from collections import Counter
 
 from gensim.models import Word2Vec
@@ -78,6 +79,19 @@ def evaluate(model_path,testing_path,size=100,topk=10):
 	return acc
 
 
+def words_simi_score(words1, words2, w2v_model):
+	data = []
+	for w1 in words1:
+		line_data = []
+		for w2 in words2:
+			if w2v_model.wv.__contains__(w1) and w2v_model.wv.__contains__(w2):
+				line_data.append(w2v_model.wv.similarity(w1, w2))
+			else:
+				line_data.append(1 if w1==w2 else 0)
+		data.append(line_data)
+	simi_mtx = np.matrix(data)
+	simi_score = np.mean(np.max(simi_mtx, axis=0))
+	return simi_score
 
 
 

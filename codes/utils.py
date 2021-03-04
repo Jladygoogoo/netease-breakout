@@ -50,6 +50,9 @@ def std_timestamp(timestamp):
     return timestamp
 
 def to_date(timestamp):
+    '''
+    将网易云评论的timestamp变为日期
+    '''
     timestamp = int (timestamp* (10 ** (10-len(str(timestamp)))))
     dt = datetime.fromtimestamp(timestamp)
     date = datetime.strftime(dt,'%Y-%m-%d')
@@ -126,6 +129,22 @@ def assign_dir(prefix, n_dir, dir_size, flag):
 
     return dir_
 
+
+def count_files(dirpath, return_files=False):
+    '''
+    统计文件夹下的文件数量
+    如果 return_files=True，则返回所有的文件名称
+    '''
+    count = 0
+    saved_files = []
+    for root, dirs, files in os.walk(dirpath):
+        for file in files:
+            if "DS" in file: continue
+            saved_files.append(file)
+            count += 1
+    if return_files:
+        return count, saved_files
+    return count
 
 
 def get_mfcc(path):

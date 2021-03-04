@@ -6,7 +6,7 @@ import pickle
 import numpy as np 
 import random
 random.seed(21)
-from collections import Counter
+from collections import Counter, UserDict
 
 from gensim.models import Doc2Vec, Word2Vec
 
@@ -15,113 +15,90 @@ import torch.utils.data as data
 
 from config import Config
 
-# 将codes包（__init__.py将文件夹变成包）载入import路径列表中
 sys.path.append("/Users/inkding/Desktop/netease2/codes")
 from utils import get_mfcc, get_d2v_vector, get_w2v_vector
 from connect_db import MyConn
 
-class MyDataste(data.Dataset):
-	'''
-	将对应的音频特征、歌词特征、评论中的语义特征打包到一起
-	+ music feature(mfcc): (20, 1292)
-	+ lyrics feature(doc2vec vector): (300,)
-	+ reviews feature(feature words): K * (300,)
-	'''
-	def __init__(self, config, train=True):
-		'''
-		+ breakouts: 爆发点的数组集合，每个爆发点以字典的形式记录（track_id, date, beta, reviews_num, feature_words）
-		+ ids: 爆发点的索引，用于__getitem__方法
-		+ conn: 数据路连接，用于获取数据路径
-		+ w2v/d2v: 预训练Word2Vec和Doc2Vec模型
-		'''
-		self.config = config
-		self.conn = MyConn()
 
-		if train:
-			self.breakouts = open(config.breakouts_id_train).read().splitlines()
-			self.no_breakouts = open(config.no_breakouts_id_train).read().splitlines()
-		else:
-			self.breakouts = open(config.breakouts_id_test).read().splitlines()
-			self.no_breakouts = open(config.no_breakouts_id_test).read().splitlines()
+class MyDataset(data.Dataset):
+    '''
+    + music feature[np.ndarray ~ (20, -1)]: mfcc特征
+    + lyrics feature[np.ndarray ~ (300,)]: 歌词特征
+    + artist feature[np.ndarray ~ (72,)]: 歌手特征
+    + reviews feature[np.ndarray ~ (5, 300)]: 评论特征
+    '''
+    def __init__(self, config, mode):
+        self.config = config
+        self.conn = MyConn()
 
-		self.ids = list(range(len(self.breakouts)+len(self.no_breakouts)))
-		print(len(self.breakouts)+len(self.no_breakouts))
+        # 获取正负样本集
+        if mode=="train":
+            DATASET_SIZE = config.TRAIN_DATASET_SIZE
+            DATASET_OFFSET = 0
+        else:
+            DATASET_SIZE = config.TEST_DATASET_SIZE
+            DATASET_OFFSET = config.TRAIN_DATASET_SIZE//2
+        sql = "SELECT track_id FROM sub_tracks WHERE valid_bnum{}0 AND rawmusic_path IS NOT NULL LIMIT {},{}"
+        b_tracks = self.conn.query(sql=sql.format('>', DATASET_OFFSET, DATASET_SIZE//2))
+        nb_tracks = self.conn.query(sql=sql.format('=', DATASET_OFFSET, DATASET_SIZE//2))
+        self.ps_track_label = [(tid, 1) for tid in b_tracks] + [(tid, 0) for tid in nb_tracks]
+        self.ids = list(range(DATASET_SIZE))
 
-		self.d2v_model = Doc2Vec.load(config.d2v_path)
-		self.w2v_model = Word2Vec.load(config.w2v_path)
-		
-
-	def __getitem__(self, index):
-		'''
-		必须自定义，使用index获取成对数据
-		'''
-		if index<len(self.breakouts):
-			label = 1
-			id_ = self.breakouts[index]
-			track_id, beta = self.conn.query(targets=["track_id", "beta"], table="breakouts",
-												conditions={"id":id_})[0]
-			feature_words = self.conn.query(targets=["feature_words"], table="breakouts_feature_words_1",
-												conditions={"breakout_id":id_})[0][0].split()
-		else:
-			label = 0
-			index = index - len(self.breakouts)
-			id_ = self.no_breakouts[index]
-			track_id = id_.split('-')[0]
-			beta = 1
-			feature_words = self.conn.query(targets=["feature_words"], table="no_breakouts_feature_words_1",
-												conditions={"id":id_})[0][0].split()
-
-		rawmusic_path, lyrics_path = self.conn.query(
-			targets=["rawmusic_path", "lyrics_path"], conditions={"track_id": track_id})[0]
-
-		mfcc = torch.Tensor(get_mfcc(rawmusic_path))
-		lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
-
-		return label, beta, mfcc, lyrics_vec, feature_words
+        # 相关模型与数据
+        with open(config.ARTISTS_VEC_DICT_PATH, "rb") as f:
+            self.d_artist_vec = pickle.load(f)
+        self.d2v_model = Doc2Vec.load(config.D2V_PATH)
+        self.w2v_model = Word2Vec.load(config.W2V_PATH)
 
 
-	def __len__(self):
-		'''
-		必须自定义，返回总样本数量
-		'''
-		return len(self.ids)
+    def __getitem__(self, index):
+        '''
+        必须定义，使用index获取一条完整的数据
+        '''
+        tid, label = self.ps_track_label[index]
+        rawmusic_path, lyrics_path, artist = self.conn.query(
+            table="sub_tracks", conditions={"track_id":tid}, fetchall=False,
+            targets=["rawmusic_path", "lyrics_path", "artist"])
+
+        artist_vec, reviews_vec = None, None # artist和reviews信息是否使用
+        mfcc_vec = torch.Tensor(get_mfcc(rawmusic_path))
+        lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
+
+        item_data = {
+            "track_id": tid,
+            "label": label,
+            "mfcc_vec": mfcc_vec,
+            "lyrics_vec": lyrics_vec
+        }
+
+        if self.config.USE_ARTIST:
+            artist_vec = self.d_artist_vec[artist.lower().strip()]
+            item_data["artist_vec"] = torch.Tensor(artist_vec)
+        if self.config.USE_REVIEWS:
+            item_data["reviews_vec"] = torch.Tensor(reviews_vec)
+
+        return item_data
 
 
-
-def get_loader(config, train=True):
-	'''
-	为MyDataset返回torch.utils.data.DataLoader对象
-	'''
-	my_dataset = MyDataste(config, train=train)
-	data_loader = data.DataLoader(dataset=my_dataset,
-								batch_size=config.batch_size,
-								shuffle=True)
-
-	return my_dataset, data_loader
+    def __len__(self):
+        return len(self.ids)
 
 
+def get_data_loader(config, mode, batch_size):
+    my_dataset = MyDataset(config, mode)
+    data_loader = data.DataLoader(dataset=my_dataset,
+                                batch_size=batch_size,
+                                shuffle=True)
+    return data_loader
 
 
 
 if __name__ == '__main__':
-	config = Config()
-	dataset, data_loader = get_loader(config)
-	
+    config = Config()
+    data_loader = get_data_loader(config)
 
-	for i, (label, beta, mfcc, lyrics_vec, feature_words) in enumerate(data_loader):
-		print(lyrics_vec[0]-lyrics_vec[1])
-		break
+    for i, item_data in enumerate(data_loader):
+        for v in item_data.values():
+            print(v)
 
-	# conn = MyConn()
-	# tracks = set()
-	# with open(json_path) as f:
-	# 	content = json.load(f)
-	# for item in content:
-	# 	tid = item["track_id"]
-	# 	if tid not in tracks:
-	# 		tracks.add(tid)
-	# 		rawmusic_path, lyrics_path = conn.query(targets=["rawmusic_path","lyrics_path"],
-	# 												conditions={"track_id":tid})[0]
-	# 		if (not os.path.exists(rawmusic_path)) or (not os.path.exists("/Volumes/nmusic/NetEase2020/data" + lyrics_path)):
-	# 			print(tid)
 

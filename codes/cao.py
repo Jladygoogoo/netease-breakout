@@ -1,16 +1,19 @@
+import re
 import os
 import time
 import json
+import jieba
 import pandas as pd 
 import numpy as np
 from connect_db import MyConn
-import random
-random.seed(21)
+# import random
+# random.seed(21)
 from collections import Counter
 from gensim.models import Doc2Vec
 
-from preprocess import cut, replace_noise
-from utils import *
+# from preprocess import cut, replace_noise
+# from utils import *
+jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
 
 
 def check_feature_words():
@@ -54,6 +57,23 @@ def update_feature_words():
         print(old_fw[i], new_fw[i])
 
 
+def jieba_accomplishments_dict():
+    df = pd.read_csv("../data/artists_KB.csv")
+    accpts = df[df["属性"]=="主要成就"]["值"].values
+    awards = set()
+    details = set()
+    for accpt in accpts:
+        if "最" in accpt: regex = r"(第.+届|\d{4}年?)?(?P<award>.+)(?=最)(?P<detail>.+)?"
+        elif "第" in accpt: regex = r"(第.+届|\d{4}年?)?(?P<award>.+)(?=第)(?P<detail>.+)?"
+
+        accpt = re.sub(r"《|》|“|”|-", "", str(accpt))
+        extracted = re.match(regex, accpt)
+        if extracted:
+            awards.add(extracted.group("award"))
+            details.add(extracted.group("detail"))
+
+    print(awards)
+    print(details)
 
 
 
@@ -97,6 +117,24 @@ def check_lyrics():
     #     print()
 
 
+def ch_knowledge_graph():
+    data_path = "/Users/inkding/data/ownthink_v2.csv"
+    df = pd.read_csv(data_path)
+    unique_entities = df["实体"].unique()
+    print(len(unique_entities))
+
+
+def test():
+    conn = MyConn()
+    data = conn.query(table="breakouts_feature_words_c3", targets=["id","clean_feature_words"])
+    for bid, clean_feature_words in data:
+        if "初中" in clean_feature_words:
+            tid = bid.split('-')[0]
+            first_review_date, json_path = conn.query(table="tracks", targets=["first_review", "json_path"], conditions={"track_id":tid})[0]
+            if first_review_date.year<=2015:
+                print(json_path)
+
+
 
 
 if __name__ == '__main__':
@@ -107,5 +145,9 @@ if __name__ == '__main__':
     # for id_ in have_words:
     #     conn.update(table="no_breakouts", settings={"have_words":1}, conditions={"id":id_})
     # update_feature_words()
-    cao()
+    # res = requests.get("http://openkg1.oss-cn-beijing.aliyuncs.com/ded3c185-fb07-4dfc-8c44-7a2626ab3f09/musicknowledge.ttl")
+    # print(res.text)
+
+    # jieba_accomplishments_dict()
+    test()
 

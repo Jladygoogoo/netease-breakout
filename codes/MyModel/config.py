@@ -1,19 +1,38 @@
 class Config:
-    breakouts_id_train = "/Users/inkding/Desktop/netease2/data/dataset/breakouts_id_train_1.txt"
-    no_breakouts_id_train = "/Users/inkding/Desktop/netease2/data/dataset/no_breakouts_id_train_1.txt"
-    breakouts_id_test = "/Users/inkding/Desktop/netease2/data/dataset/breakouts_id_test_1.txt"
-    no_breakouts_id_test = "/Users/inkding/Desktop/netease2/data/dataset/no_breakouts_id_test_1.txt"
+    def __init__(self):
+        # 数据
+        self.USE_ARTIST = True
+        self.USE_REVIEWS = False
+        self.LYRICS_VEC_LENGTH = 300
+        self.ARTIST_VEC_LENGTH = 72 if self.USE_ARTIST else 0
+        self.DATASET_OFFSET = 0
+        self.TRAIN_DATASET_SIZE = 4000
+        self.TEST_DATASET_SIZE = 200
+        self.TRAIN_BATCH_SIZE = 32
+        self.TEST_BATCH_SIZE = 100
+        self.NUM_CLASS = 2
 
-    w2v_path = "/Users/inkding/Desktop/partial_netease/models/word2vec/b1.mod"
-    d2v_path = "/Users/inkding/Desktop/netease2/models/d2v/d2v_a1.mod"
-    batch_size = 32
-    topk = 6
-    lr = 0.05
-    num_epochs = 5
-    log_step = 10
-    save_epoch = 1
-    embedding_size = 300
-    cnn_out_size = 1024
-    class_num = 2
-    breakout_size = 1000
-    no_breakout_size = 1000
+        # 模型设定
+        self.LR = 0.001
+        self.NUM_EPOCHS = 10
+        self.EPOCH_SAVE_STEP = 5
+        ## CNN
+        self.CNN_OUT_LENGTH = 1024
+        self.CNN_NUM_CONVS = 3
+        self.CNN_IN_C = [1, 32, 64]
+        self.CNN_OUT_C = [32, 64, 128]
+        self.CNN_CONV_KERNEL_SIZE = [3, 3, 3]
+        self.CNN_MAX_KERNEL_SIZE = [4, 4, 4]
+        ## DNN
+        self.DNN_IN = [self.CNN_OUT_LENGTH+self.LYRICS_VEC_LENGTH+self.ARTIST_VEC_LENGTH, 256, 128]
+        self.DNN_HIDDEN = [256, 128, 64]
+        self.DNN_NUM_HIDDENS = len(self.DNN_HIDDEN)
+
+        # 路径
+        self.W2V_PATH = "/Users/inkding/Desktop/netease2/models/w2v/c4.mod"
+        self.D2V_PATH = "/Users/inkding/Desktop/netease2/models/d2v/d2v_a2.mod"    
+        self.ARTISTS_VEC_DICT_PATH = "/Users/inkding/Desktop/netease2/data/artists_vec_dict.pkl"
+
+
+if __name__ == '__main__':
+    print(Config().__dict__)
