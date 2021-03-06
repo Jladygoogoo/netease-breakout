@@ -49,6 +49,9 @@ def _mark_language(text, enchant_dict=None):
 
 
 
+
+
+
 if __name__ == '__main__':
 	mark_language()
 	# for file in os.listdir("/Volumes/nmusic/NetEase2020/data/proxied_lyrics/5/97"):

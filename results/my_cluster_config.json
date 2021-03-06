@@ -1,0 +1,11 @@
+[
+	{
+		"cluster_index": 1,
+		"details": {
+			"w2v_path": "../models/w2v/c4.mod",
+			"rubbish_tags_path": "../resources/rubbish_words_tags.txt",
+			"affinity": 0.55,
+			"merge_simi_score_thres": 0.65
+		}
+	}
+]

@@ -373,12 +373,13 @@ def test_my_cluster():
 
 	print(len(tags_pool)) # 24796
 	
+	cluster_index = 1
 	my_cluster = ClustersSet(w2v_path=w2v_path, affinity=0.55)	
 	my_cluster.grow(tags_pool)
-	my_cluster.save(model_path="../models/my_cluster/my_cluster_1.pkl", 
-						txt_path="../results/my_cluster_1_res.txt", 
-						csv_path="../results/my_cluster_1_res.csv",
-						bsizes_csv_path="../results/clusters_bsizes.csv")
+	my_cluster.save(model_path="../models/my_cluster/my_cluster_{}.pkl".format(cluster_index), 
+						txt_path="../results/my_cluster_{}.txt".format(cluster_index), 
+						csv_path="../results/my_cluster_{}.csv".format(cluster_index),
+						bsizes_csv_path="../results/my_clusters_{}_bsizes.csv".format(cluster_index))
 	# with open()
 
 

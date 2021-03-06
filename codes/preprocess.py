@@ -10,6 +10,8 @@ from collections import Counter
 from gensim import models
 import pymysql
 
+from connect_db import MyConn
+
 jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
 
 # ============ #
@@ -97,7 +99,6 @@ def cut_en(text, stops_sup=[]):
 
 
 
-
 # 为w2v模型封装生成器
 class W2VSentenceGenerator():
 	def __init__(self,path, min_size=2, file_is_sent=True):
@@ -136,23 +137,32 @@ class TaggedSentenceGenerator():
 	'''
 	def __init__(self):
 		sql = "SELECT track_id, lyrics_path FROM tracks WHERE language IN ('en','ch')"
-		self.lyrics_path_set = [r[0] for r in MyConn().query(sql=sql)]
+		self.lyrics_path_set = MyConn().query(sql=sql)
 
 	def __iter__(self):
 		flag = 0
-		for i, track_id, lyrics_path in enumerate(self.lyrics_path_set):
+		self.lyrics_valid_tracks = [] # 用于训练歌词d2v模型的歌曲id
+		for i, p in enumerate(self.lyrics_path_set):
+			track_id, lyrics_path = p
 			if i%1000==0: print("{} files loaded.".format(i))
 
-			with open(filepath) as f:
-				content = json.load(filepath)
+			with open(lyrics_path) as f:
+				content = json.load(f)
 				if "lrc" not in content or "lyric" not in content["lrc"]:
 					continue
 				text = replace_noise(content["lrc"]["lyric"])
+				text = re.sub(r"( )*[作词|作曲|编曲|制作人|录音|混母带|监制].*\n", "", text)
 				words = cut(text, join_en=False)
 				if len(words)<10:
 					continue
+				self.lyrics_valid_tracks.append(track_id)
 
 				yield models.doc2vec.TaggedDocument(words,[str(flag)])
+
+	def save_lyrics_valid_tracks(self):
+		with open("../data_related/lyrics_valid_tracks.txt", "w") as f:
+			f.write("\n".join(self.lyrics_valid_tracks))
+
 
 
 # 提取句子中的top_tags

@@ -8,7 +8,7 @@ import logging
 import pandas as pd
 import numpy as np
 from gensim import models
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from connect_db import MyConn
 from preprocess import cut
@@ -381,7 +381,7 @@ def artist_vec_from_tags(min_tags_num=2):
     conn = MyConn()
     artists = conn.query(table="artists", targets=["name", "nid"])
     tracks_artists = conn.query(table="details", targets=["track_id", "artists"])
-    d_artist_tracks = {}
+    d_artist_tracks = {} # 记录歌手对应的歌曲集
     for ar, nid in artists:
         if nid=="0": continue
         d_artist_tracks[ar.lower().strip()] = []
@@ -398,7 +398,7 @@ def artist_vec_from_tags(min_tags_num=2):
     tracks_tags = conn.query(sql="SELECT track_id, tags FROM tracks")
     tags = open("../data_related/自带tags.txt").read().splitlines()
     d_tag_index = dict([(t, i) for i, t in enumerate(tags)])
-    d_track_tags_count = {}
+    d_track_tags_count = {} # 记录歌曲对应的标签集
     for tid, t_tags in tracks_tags:
         if tid not in tracks: continue
         t_vec = np.zeros((len(tags),))
@@ -407,7 +407,7 @@ def artist_vec_from_tags(min_tags_num=2):
             t_vec[d_tag_index[t]] += 1
         d_track_tags_count[tid] = t_vec
 
-    d_artist_tags_count = {}
+    d_artist_tags_count = {} # 记录歌手对应的标签集
     for ar, ar_tracks in d_artist_tracks.items():
         if len(ar_tracks)==0: continue
         ar_vec = np.sum(np.array([d_track_tags_count[tid] for tid in ar_tracks]), axis=0)
@@ -416,7 +416,11 @@ def artist_vec_from_tags(min_tags_num=2):
 
     artists = list(d_artist_tags_count.keys())
     ar_vecs = list(d_artist_tags_count.values())
-    norm_ar_vecs = StandardScaler().fit_transform(ar_vecs)
+    ar_vecs = np.mat(ar_vecs).T
+
+    # scaled_ar_vecs = StandardScaler().fit_transform(ar_vecs) # mean=0, std=1
+    scaled_ar_vecs = MinMaxScaler().fit_transform(ar_vecs) # [0,1]
+    scaled_ar_vecs = np.mat(scaled_ar_vecs).T
 
     # 统计
     tags_count = np.sum(np.array(ar_vecs), axis=0)
@@ -424,9 +428,48 @@ def artist_vec_from_tags(min_tags_num=2):
     #     print(tags[i], tags_count[i])
     print(len(artists))
 
-    d_artist_vec = dict(zip(artists, norm_ar_vecs))
-    with open("../data/artists_vec_dict.pkl", "wb") as f:
+    d_artist_vec = {}
+    for i in range(len(artists)):
+        d_artist_vec[artists[i]] = np.array(scaled_ar_vecs[i]).ravel()
+
+    # d_artist_vec = dict(zip(artists, scaled_ar_vecs))
+    with open("../data/r_minmax_artists_vec_dict.pkl", "wb") as f:
         pickle.dump(d_artist_vec, f)
+
+
+def artist_tags_distribution(ar):
+    with open("../data/r_minmax_artists_vec_dict.pkl", "rb") as f:
+        d_artist_vec = pickle.load(f)
+    if ar.lower() not in d_artist_vec:
+        print("{} not in database.".format(ar))
+        return
+    vec = d_artist_vec[ar]
+    tags = open("../data_related/自带tags.txt").read().splitlines()
+    for i in range(len(tags)):
+        print(tags[i], vec[i])
+
+
+def artists_similarity(ar1, ar2):
+    source_path = "../data/r_minmax_artists_vec_dict.pkl"
+    # source_path = "../data/standard_artists_vec_dict.pkl"
+    print("source:", source_path)
+    with open(source_path, "rb") as f:
+        d_artist_vec = pickle.load(f)
+    if ar1.lower() not in d_artist_vec:
+        print("{} not in database.".format(ar1))
+        return
+    if ar2.lower() not in d_artist_vec:
+        print("{} not in database.".format(ar2))
+        return
+    vec1 = np.mat(d_artist_vec[ar1])
+    vec2 = np.mat(d_artist_vec[ar2])
+    num = float(vec1*vec2.T)
+    denom = np.linalg.norm(vec1) * np.linalg.norm(vec2)
+    simi = num / denom
+    print("simi score: {:.2f} ({}, {})".format(simi, ar1, ar2))
+
+    return simi
+
 
 
 
@@ -442,6 +485,8 @@ if __name__ == '__main__':
     #     eval(func_name)(*params)
     # else:
     #     eval(func_name)()
-    artist_vec_from_tags()
+    # artist_vec_from_tags()
+    # artist_tags_distribution("周杰伦")
+    artists_similarity("赵雷", "陈粒")
 
 

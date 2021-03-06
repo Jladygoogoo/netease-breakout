@@ -121,9 +121,9 @@ def get_breakouts_text(df, date, max_reviews=2000):
 
 
 def get_reviews_num_df(json_path):
-	'''
-	new_df = pd.DataFrame(data, columns=["date", "year", "reviews_num", "is_peak"])
-	'''
+    '''
+    new_df = pd.DataFrame(data, columns=["date", "year", "reviews_num", "is_peak"])
+    '''
     df = get_reviews_df(json_path)
     reviews_count, dates =  get_reviews_count(df["date"].values)
     breakouts_group = get_breakouts(reviews_count, min_reviews=200)
@@ -341,6 +341,6 @@ def main():
 
 if __name__ == '__main__':
     # main()
-    for p in get_breakouts_by_keywords(["日推"], "breakouts_feature_words_c3")[:10]:
-    	print(p)
+    for p in get_breakouts_by_keywords(["情人节"], "breakouts_feature_words_c3")[:10]:
+        print(p)
     
