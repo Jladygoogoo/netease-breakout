@@ -108,6 +108,7 @@ def prep_no_breakouts_data():
                     continue
 
                 if len(conn.query(table="no_breakouts", targets=["track_id"], conditions={"track_id": track_id})) != 0:
+                    count += 1
                     continue
 
                 df = get_reviews_df(filepath)
@@ -131,16 +132,17 @@ def prep_no_breakouts_data():
                             "end_date": dates[group[1]],
                             "reviews_acc": group[2]
                         }
-                        conn.insert(table="no_breakouts", settings=data)
+                        # conn.insert(table="no_breakouts", settings=data)
 
                         # 提取文字
                         text = ""
                         dir_ = assign_dir(prefix, n_dir, dir_size, flag=count)
+                        print(dir_, count)
                         for point in range(group[0], group[1]):
                             date = dates[point]
                             text += get_breakouts_text(df, date)
-                        with open(os.path.join(dir_, "{}-{}.txt".format(file[:-5], flag)), 'w') as f:
-                            f.write(text)
+                        # with open(os.path.join(dir_, "{}-{}.txt".format(file[:-5], flag)), 'w') as f:
+                        #     f.write(text)
 
                         count += 1
                         if count%100==0:
@@ -152,6 +154,7 @@ def prep_no_breakouts_data():
             except:
                 print(traceback.format_exc())
                 continue
+
 
 
 
@@ -358,7 +361,8 @@ def get_breakouts_num():
 
 
 if __name__ == '__main__':
-    breakouts_complements_cluster()
+    # breakouts_complements_cluster()
     # breakouts_curve_with_special_words()
     # get_breakouts_num()
+    prep_no_breakouts_data()
 

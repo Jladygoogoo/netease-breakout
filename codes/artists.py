@@ -437,8 +437,8 @@ def artist_vec_from_tags(min_tags_num=2):
         pickle.dump(d_artist_vec, f)
 
 
-def artist_tags_distribution(ar):
-    with open("../data/r_minmax_artists_vec_dict.pkl", "rb") as f:
+def artist_tags_distribution(ar, source_path):
+    with open(source_path, "rb") as f:
         d_artist_vec = pickle.load(f)
     if ar.lower() not in d_artist_vec:
         print("{} not in database.".format(ar))
@@ -449,9 +449,7 @@ def artist_tags_distribution(ar):
         print(tags[i], vec[i])
 
 
-def artists_similarity(ar1, ar2):
-    source_path = "../data/r_minmax_artists_vec_dict.pkl"
-    # source_path = "../data/standard_artists_vec_dict.pkl"
+def artists_similarity(ar1, ar2, source_path):
     print("source:", source_path)
     with open(source_path, "rb") as f:
         d_artist_vec = pickle.load(f)
@@ -472,7 +470,6 @@ def artists_similarity(ar1, ar2):
 
 
 
-
 if __name__ == '__main__':
     # func_name = sys.argv[1]
     # if input("是否输入参数？(y/n)")=="y":
@@ -487,6 +484,10 @@ if __name__ == '__main__':
     #     eval(func_name)()
     # artist_vec_from_tags()
     # artist_tags_distribution("周杰伦")
-    artists_similarity("赵雷", "陈粒")
+    source_path = "../data/artists_vec_dict_standard.pkl"
+    artists_similarity("林俊杰", "周杰伦", source_path)
+    artists_similarity("troye sivan", "taylor swift", source_path)
+    artists_similarity("林俊杰", "taylor swift", source_path)
+    artists_similarity("赵雷", "陈粒", source_path)
 
 

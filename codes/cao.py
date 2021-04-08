@@ -5,6 +5,8 @@ import json
 import jieba
 import pandas as pd 
 import numpy as np
+import librosa
+import pickle
 from connect_db import MyConn
 # import random
 # random.seed(21)
@@ -124,17 +126,26 @@ def ch_knowledge_graph():
     print(len(unique_entities))
 
 
-def test():
-    conn = MyConn()
-    data = conn.query(table="breakouts_feature_words_c3", targets=["id","clean_feature_words"])
-    for bid, clean_feature_words in data:
-        if "初中" in clean_feature_words:
-            tid = bid.split('-')[0]
-            first_review_date, json_path = conn.query(table="tracks", targets=["first_review", "json_path"], conditions={"track_id":tid})[0]
-            if first_review_date.year<=2015:
-                print(json_path)
-
-
+def main():
+    # conn = MyConn()
+    # col = "feature_words_candidates"
+    # words = set()
+    # for r in conn.query(table="breakouts_feature_words", targets=[col]):
+    #     if not r[0]: continue
+    #     words.update(r[0].split())
+    # for r in conn.query(table="no_breakouts_feature_words", targets=[col]):
+    #     if not r[0]: continue
+    #     words.update(r[0].split())
+    words = set()
+    with open("../data/reviews_feature_words_with_freqs/breakouts_cls.json") as f:
+        data = json.load(f)
+        for k in data:
+            words.update(data[k]["words"])
+    with open("../data/reviews_feature_words_with_freqs/no_breakouts_cls.json") as f:
+        data = json.load(f)
+        for k in data:
+            words.update(data[k]["words"])
+    print(len(words))
 
 
 if __name__ == '__main__':
@@ -149,5 +160,5 @@ if __name__ == '__main__':
     # print(res.text)
 
     # jieba_accomplishments_dict()
-    test()
+    main()
 

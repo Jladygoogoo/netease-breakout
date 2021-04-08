@@ -356,7 +356,7 @@ def test_dbscan():
 def test_my_cluster():
 	conn = MyConn()
 	w2v_path = "../models/w2v/c4.mod"
-	rubbish_tags = open("../resources/rubbish_words_tags.txt").read().splitlines()
+	rubbish_tags = open("../resources/rubbish_words_for_weather.txt").read().splitlines()
 	w2v_model = Word2Vec.load(w2v_path)
 
 	valid_breakouts = conn.query(sql="SELECT id, date, reviews_num FROM breakouts WHERE release_drive=0 AND capital_drive=0 AND fake=0")
@@ -373,7 +373,7 @@ def test_my_cluster():
 
 	print(len(tags_pool)) # 24796
 	
-	cluster_index = 1
+	cluster_index = "weather"
 	my_cluster = ClustersSet(w2v_path=w2v_path, affinity=0.55)	
 	my_cluster.grow(tags_pool)
 	my_cluster.save(model_path="../models/my_cluster/my_cluster_{}.pkl".format(cluster_index), 

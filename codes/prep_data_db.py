@@ -45,11 +45,11 @@ def update_chorus_start():
         '''
         conn = MyConn()
         while 1:
-            sql = "SELECT track_id, mp3_path from sub_tracks WHERE chorus_start IS NULL AND valid_bnum=0"
+            sql = "SELECT track_id, mp3_path from sub_tracks WHERE chorus_start is NULL AND valid_bnum=0"
             task_args["lock"].acquire()
             res = conn.query(sql=sql, fetchall=False)
-            if not res: 
-                break # sub_tracks表格中不存在chorus_start is null的歌曲
+            if len(res)==0: 
+                return # sub_tracks表格中不存在chorus_start is null的歌曲
             tid, mp3_path = res[0], res[1]
             conn.update(table="sub_tracks", settings={"chorus_start":0}, conditions={"track_id":tid})
             task_args["lock"].release()
@@ -68,7 +68,7 @@ def update_chorus_start():
                             conditions={"track_id":tid})
             except KeyboardInterrupt:
                 conn.update(sql="UPDATE sub_tracks SET chorus_start=NULL WHERE track_id={}".format(tid))
-                break
+                return
             except:
                 print(tid, traceback.format_exc())
 
@@ -184,6 +184,31 @@ def create_subtracks_table():
         conn.insert(table="sub_tracks", settings=dict(zip(columns, item)))
 
 
+def update_subtracks_havesimis():
+    conn = MyConn()
+    valid_tracks = set([r[0] for r in conn.query(sql="SELECT track_id FROM breakouts WHERE simi_score>=0.5")])
+    for tid in valid_tracks:
+        conn.update(table="sub_tracks", settings={"have_simis":1}, conditions={"track_id":tid})
+
+
+
+def update_subtracks_music_words():
+    conn = MyConn()
+    valid_tracks_db = [r[0] for r in conn.query(sql="SELECT track_id FROM sub_tracks WHERE is_valid=1")]
+    with open("../data/reviews_feature_words_with_freqs/breakouts_wo_simi.json") as f:
+        data = json.load(f)
+        valid_tracks_pos = list(set([bid.split('-')[0] for bid in data if data[bid]["len"]>=5]))
+    with open("../data/reviews_feature_words_with_freqs/no_breakouts_wo_simi.json") as f:
+        data = json.load(f)
+        valid_tracks_neg = [str(tid) for tid in data if data[tid]["len"]>=5]
+    valid_tracks = valid_tracks_pos + valid_tracks_neg
+    print(len(valid_tracks_db))
+    print(len(valid_tracks), len(valid_tracks_pos), len(valid_tracks_neg))
+    for tid in valid_tracks_db:
+        if tid not in valid_tracks:
+            conn.update(table="sub_tracks", settings={"is_valid":0}, conditions={"track_id":tid})
+            print(tid)
+
 
 
 
@@ -221,7 +246,7 @@ def refine_subtracks():
 
 
 
-def update_path(name, root_dir, offset, table):
+def update_path(table, key_col, col, root_dir, offset, overwrite=False):
     '''
      在数据库中更新路径
     '''
@@ -231,111 +256,17 @@ def update_path(name, root_dir, offset, table):
         for file in files: 
             if "OS" in file: continue
             filepath = os.path.join(root, file)
-            track_id = file.split('/')[-1][:-offset]
-            res = conn.query(table=table, targets=[name], conditions={"track_id":track_id}, fetchall=False)
-            if res and res[0] is None:
-                conn.update(table=table, settings={name:filepath}, conditions={"track_id":track_id})
+            key = file.split('/')[-1][:-offset]
+            res = conn.query(table=table, targets=[col], conditions={key_col: key}, fetchall=False)
+            if overwrite:
+                conn.update(table=table, settings={col:filepath}, conditions={key_col: key})
                 count_update += 1
+            else:
+                if res and res[0] is None:
+                    conn.update(table=table, settings={col:filepath}, conditions={key_col: key})
+                    count_update += 1
     print(count_update)
 
-
-
-def add_feature_words_to_db():
-    '''
-    直接在数据库中更新feature_words，使用多进程
-    '''
-    def task(pid, task_args):
-        conn = MyConn()
-        w2v_model = Word2Vec.load("../models/w2v/c3.mod")
-        while 1:
-            task_args["lock"].acquire()
-            res = conn.query(targets=["id", "text_path"], conditions={"have_words":0}, 
-                    table="breakouts", fetchall=False)
-            if res is not None:
-                id_, text_path = res
-                conn.update(table="breakouts",
-                            settings={"have_words": 1},
-                            conditions={"id": id_})
-                task_args["lock"].release()
-
-                try:
-                    feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-                    conn.insert(table="breakouts_feature_words_c3",
-                                settings={"id":id_, "feature_words":" ".join(feature_words)})
-
-                    # print("[Process-{}] id: {}, feature_words: {}".format(pid, id_, feature_words))
-                except:
-                    conn.update(table="breakouts",
-                                settings={"have_words": 0},
-                                conditions={"id": id_})
-                    print(id_)
-                    print(traceback.format_exc())
-                    break
-
-            else:
-                task_args["lock"].release()
-                break
-
-    lock = PLock()
-    task_args = {"lock":lock}
-    process_group = ProcessGroup(task=task, n_procs=1, task_args=task_args)
-    process_group.start()
-
-
-
-def add_feature_words_to_db_2():
-    '''
-    直接在数据库中更新feature_words，使用多进程。对应no_breakouts。
-    '''
-    def task(pid, task_args):
-        conn = MyConn()
-        w2v_model = Word2Vec.load("../models/w2v/b1.mod")
-        while 1:
-            task_args["lock"].acquire()
-            res = conn.query(sql="SELECT id,text_path from no_breakouts WHERE have_words=0 AND text_path IS NOT NULL", 
-                    table="no_breakouts", fetchall=False)
-            if res is not None:
-                id_, text_path = res
-                if text_path is None: 
-                    task_args["lock"].release()
-                    continue
-                conn.update(table="no_breakouts",
-                            settings={"have_words": 1},
-                            conditions={"id": id_})
-                task_args["lock"].release()
-
-                try:
-                    feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
-                    # print(text_path)
-                    # print(open(te xt_path).read())
-                    conn.insert(table="no_breakouts_feature_words_1",
-                                settings={"id":id_, "feature_words":" ".join(feature_words)})
-
-                    print("[Process-{}] id: {}, feature_words: {}".format(pid, id_, feature_words))
-                except KeyboardInterrupt:
-                    conn.update(table="no_breakouts",
-                                settings={"have_words": 0},
-                                conditions={"id": id_})
-                    return
-                except TypeError:
-                    print("TypeError", text_path)
-                    continue
-                except:
-                    print(traceback.format_exc())
-                    conn.update(table="no_breakouts",
-                                settings={"have_words": 0},
-                                conditions={"id": id_})
-                    continue
-                    
-
-            else:
-                task_args["lock"].release()
-                break
-
-    lock = PLock()
-    task_args = {"lock":lock}
-    process_group = ProcessGroup(task=task, n_procs=3, task_args=task_args)
-    process_group.start()
 
 
 
@@ -360,10 +291,14 @@ def update_special_tag1():
 
 
 
+
+
 if __name__ == '__main__':
     # update_chorus_start()
     # create_subtracks_table()
-    # update_path(name="rawmusic_path", root_dir="/Volumes/nmusic/NetEase2020/data/chorus_mark_rawmusic/", offset=4, table="sub_tracks")
+    update_path(key_col="track_id", col="vggish_examples_path", root_dir="/Volumes/nmusic/NetEase2020/data/vggish_examples/", offset=4, table="sub_tracks", overwrite=True)
     # refine_subtracks()
-    copy_columns(t1="tracks", t2="sub_tracks", col="language")
+    # copy_columns(t1="tracks", t2="sub_tracks", col="language")
     # update_special_tag1()
+    # update_subtracks_havesimis()
+    # update_subtracks_music_words()

@@ -18,6 +18,26 @@ from preprocess import tags_extractor
 
 
 
+def get_breakout_index_seq(sequence, window_size=15):
+    '''
+    计算爆发系数序列
+    '''
+    breakout_index_seq = []
+    k = window_size // 2
+    for i in range(len(sequence)):
+        start = max(0,i-k)
+        end = min(i+k,len(sequence)-1)
+        left = [sequence[i]-sequence[j] for j in range(start,i)]
+        right = [sequence[i]-sequence[j] for j in range(i+1,end)]
+        xi = np.sum(left+right)/(2*k)
+        breakout_index_seq.append(xi)
+
+    mean, std = np.mean(breakout_index_seq), np.std(breakout_index_seq)
+    scaled_bis = np.array(list(filter(lambda x:(x-mean)/std, breakout_index_seq)))
+
+    return scaled_bis
+
+
 def get_reviews_df(filepath):
     with open(filepath) as f:
         content = json.load(f)
@@ -32,6 +52,7 @@ def get_reviews_df(filepath):
     df = pd.DataFrame(data_corpus, columns=["time", "content"])
     df.drop_duplicates(['time'], inplace=True)
     df['date'] = df['time'].map(lambda x:to_date(x))
+    df.sort_values(by="date", inplace=True)
     df.drop(['time'], axis=1, inplace=True)
 
     return df
@@ -66,22 +87,11 @@ def get_breakouts(sequence, window_size=10, thres=5, group=True, group_gap=15, m
     return: breakout_points = [(index, breakout_factor), ...]
     return: breakouts_group = [[(g1p1, bf11), (g1p2, bf12),...], [(g2p1, bf21),...], ...]
     '''
-    breakout_factors = []
-    k = window_size // 2
-    for i in range(len(sequence)):
-        start = max(0,i-k)
-        end = min(i+k,len(sequence)-1)
-        left = [sequence[i]-sequence[j] for j in range(start,i)]
-        right = [sequence[i]-sequence[j] for j in range(i+1,end)]
-        xi = np.sum(left+right)/(2*k)
-        breakout_factors.append(xi)
-
-    mean, std = np.mean(breakout_factors), np.std(breakout_factors)
-    bf = np.array(list(filter(lambda x:(x-mean)/std, breakout_factors)))
-    peaks_filter = np.where(bf>thres)
+    scaled_bis = get_breakout_index_seq(sequence)
+    peaks_filter = np.where(scaled_bis>thres)
 
     # 根据breakout_factor筛选
-    breakout_points = list(zip(np.array(range(len(sequence)))[peaks_filter], bf[peaks_filter]))
+    breakout_points = list(zip(np.array(range(len(sequence)))[peaks_filter], scaled_bis[peaks_filter]))
     # 根据min_reviews筛选
     breakout_points = [p for p in breakout_points if sequence[p[0]]>=min_reviews]
 
@@ -152,18 +162,7 @@ def get_no_breakouts(sequence, window_size=15, thres=5, min_reviews=100):
         # left_index, right_index 非爆发窗口的起点和终点
         # reviews_acc 非爆发窗口中的累积评论数
     '''
-    breakout_factors = []
-    k = window_size // 2
-    for i in range(len(sequence)):
-        start = max(0,i-k)
-        end = min(i+k,len(sequence)-1)
-        left = [sequence[i]-sequence[j] for j in range(start,i)]
-        right = [sequence[i]-sequence[j] for j in range(i+1,end)]
-        xi = np.sum(left+right)/(2*k)
-        breakout_factors.append(xi)
-
-    mean, std = np.mean(breakout_factors), np.std(breakout_factors)
-    bf = np.array(list(filter(lambda x:(x-mean)/std, breakout_factors)))
+    scaled_bis = get_breakout_index_seq(sequence)
 
     no_breakouts_group = []
     # 连续多天未(window_size)爆发，且累计评论数大于某阈值(min_reviews)
@@ -171,17 +170,16 @@ def get_no_breakouts(sequence, window_size=15, thres=5, min_reviews=100):
 
     reviews_acc = 0
     while right<len(sequence):
-        while right<len(sequence) and bf[right]<thres and reviews_acc<min_reviews:
+        while right<len(sequence) and scaled_bis[right]<thres and reviews_acc<min_reviews:
             if right-left > window_size: break
             reviews_acc += sequence[right]
             right += 1
         if reviews_acc >= min_reviews:
             no_breakouts_group.append([left, right-1, reviews_acc])                
         reviews_acc = 0
-        if right<len(sequence) and bf[right] >= thres:
+        if right<len(sequence) and scaled_bis[right] >= thres:
             right += window_size # 不能离爆发点太近
         left = right
-
 
     return no_breakouts_group
 

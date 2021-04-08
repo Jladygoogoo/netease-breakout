@@ -1,9 +1,11 @@
 import os
+import json
 import numpy as np 
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 def get_pairwise_embed(feature_words, embed1, semantic_feature_embed, word_to_vec):
     '''
@@ -54,6 +56,26 @@ def beta_transform(beta):
     if beta<=225:
         return 1 + 9 / (1 + (1+0.05)**(225-beta))
     return 1 + 9 / (1 + (1+0.05)**(-(beta-225)**0.5))
+
+
+def get_acc(y, y_pred):
+    # y_pred = F.softmax(y_pred)
+    corrects = (torch.max(y_pred, 1)[1].view(-1).data == y.data).sum()
+    # print("Predicted correctly: {}/{} = {:.2f}%".format(
+    #     corrects, len(y), float(corrects)/len(y)*100))
+    return float(corrects)/len(y)
+
+
+def save_settings(model_mode, model_index, config):
+    model_save_dir = "models/{}/{}".format(model_mode, model_index)
+    config_save_path = "models/{}/{}/config.json".format(model_mode, model_index)
+    if not os.path.exists(model_save_dir):
+        os.makedirs(model_save_dir)
+    with open(config_save_path, "w") as f:
+        json.dump(config.__dict__, f, indent=4)
+
+    return model_save_dir
+
 
 
 def my_loss1(embed1, pos_embeds2):
@@ -113,7 +135,79 @@ def my_loss3(embed1, pos_embeds2, neg_embeds2, beta):
     return loss
 
 
+def embedding_loss_euclidean(embed1, embed2):
+    '''
+    使用欧式距离
+    '''
+    loss = torch.mean(F.pairwise_distance(embed1, embed2))
+    return loss
 
+
+
+def get_contrastive_loss_kiros(gamma=0, symmetric=False):
+    """ Compile contrastive loss (Kiros et al. 2014) """
+
+    def loss(lv1, lv2):
+        """ Contrastive cosine distance optimization target """
+
+        # compute image-sentence score matrix
+        scores = torch.matmul(lv1, lv2.T)
+        diagonal = scores.diagonal()
+
+        # compare every diagonal score to scores in its column (i.e, all contrastive images for each sentence)
+        cost_s = torch.max(torch.zeros(scores.shape), gamma - diagonal + scores)
+        # compare every diagonal score to scores in its row (i.e, all contrastive sentences for each image)
+        cost_im = torch.max(torch.zeros(scores.shape), gamma - diagonal.reshape((-1, 1)) + scores)
+
+        # clear diagonals
+        cost_s.fill_diagonal_(0)
+        cost_im.fill_diagonal_(0)
+
+        return cost_s.sum() + cost_im.sum()
+
+    return loss
+
+
+def get_contrastive_cos_loss(weight, gamma, symmetric=False):
+    """ Compile contrastive loss (Kiros et al. 2014) """
+
+    def loss(lv1, lv2):
+        """ Contrastive cosine distance optimization target """
+
+        n = lv1.shape[0]
+
+        # direction 1
+        D = lv1.dot(lv2.T)
+        d = D.diagonal().reshape((-1, 1))
+
+        M = T.identity_like(D)
+        O = D[(M <= 0).nonzero()].reshape((n, n - 1))
+
+        L = gamma - d
+        L = T.repeat(L, n - 1, 1)
+        L += O
+        L = T.clip(L, 0, 1000)
+
+        loss = L.mean()
+
+        # direction 2
+        if symmetric:
+            D = lv2.dot(lv1.T)
+            d = D.diagonal().reshape((-1, 1))
+
+            M = T.identity_like(D)
+            O = D[(M <= 0).nonzero()].reshape((n, n - 1))
+
+            L = gamma - d
+            L = T.repeat(L, n - 1, 1)
+            L += O
+            L = T.clip(L, 0, 1000)
+
+            loss += L.mean()
+
+        return weight * loss
+
+    return loss
 
 
 

@@ -166,7 +166,7 @@ class TaggedSentenceGenerator():
 
 
 # 提取句子中的top_tags
-def tags_extractor(text, topk=8, w2v_model=None, stops_sup=None):
+def tags_extractor(text, topk=10, w2v_model=None, stops_sup=None, return_freq=False):
 	text = replace_noise(text)
 
 	words = []
@@ -178,15 +178,20 @@ def tags_extractor(text, topk=8, w2v_model=None, stops_sup=None):
 	# rubbish = open("../resources/rubbish_tags.txt").read().splitlines()
 	if w2v_model is not None:
 		for x in counter.most_common():
-			# if not w2v_model.wv.__contains__(x[0]): continue
+			if not w2v_model.wv.__contains__(x[0]): continue
 			# if x[0] in rubbish: continue
-			tags.append(x[0])
-			if len(tags)==topk:
-				return tags
-		return tags
+			tags.append(x)
+			if topk and len(tags)==topk:
+				break
 	else:
-		tags = [x[0] for x in counter.most_common(topk)]
-		return tags
+		tags = counter.most_common(topk)
+	d_tag_freq = dict(tags)
+
+	if not return_freq:
+		return list(d_tag_freq.keys())
+	else:
+		total = sum(d_tag_freq.values())
+		return list(map(lambda p:(p[0], p[1]/total), list(d_tag_freq.items())))
 
 
 # ============ #

@@ -13,6 +13,7 @@ import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import torch
 import librosa
 from gensim.models import Word2Vec
 import soundfile as sf
@@ -23,6 +24,7 @@ from breakout_tools import get_reviews_df, get_reviews_count, get_breakouts, get
 from utils import assign_dir, get_tracks_set_db, get_dir_item_set, get_chorus
 from preprocess import tags_extractor
 from utils import count_files, get_chorus
+from vggish_input import waveform_to_examples
 
 
 def get_from_db(track_id, targets):
@@ -103,7 +105,7 @@ def extract_chorus_mark_rawmusic():
     使用多线程。
     '''
     conn = MyConn()
-    sql = "SELECT track_id FROM sub_tracks WHERE rawmusic_path IS NULL AND valid_bnum=0 AND chorus_start IS NOT NULL AND chorus_start>0 LIMIT 1100"
+    sql = "SELECT track_id FROM sub_tracks WHERE rawmusic_path IS NULL AND valid_bnum=0 AND chorus_start>0"
     tracks = [r[0] for r in conn.query(sql=sql)]
     
     save_dir_prefix = "/Volumes/nmusic/NetEase2020/data/chorus_mark_rawmusic"
@@ -157,7 +159,124 @@ def extract_chorus_mark_rawmusic():
 
 
 
+def build_vggish_embed_dataset():
+    conn = MyConn()
+    sql = "SELECT track_id FROM sub_tracks WHERE is_valid=1 AND vggish_embed_path IS NULL"
+    tracks = [r[0] for r in conn.query(sql=sql)]
     
+    save_dir_prefix = "/Volumes/nmusic/NetEase2020/data/vggish_embed"
+    n_dir, dir_size = 1, 100
+    flag, saved_files = count_files(save_dir_prefix, return_files=True) # 已经提取好的歌曲
+    saved_tracks = [x[:-4] for x in saved_files]
+
+    q_tracks = Queue()
+    vggish = torch.hub.load("harritaylor/torchvggish", "vggish", pretrained=True)
+    for t in tracks: 
+        if t not in saved_tracks:
+            q_tracks.put(t)
+    print(q_tracks.qsize())
+    lock = Lock()
+
+    def task(thread_id, task_args):
+        conn = MyConn()
+        while not q_tracks.empty():
+            try:
+                tid = q_tracks.get()
+                
+                lock.acquire()
+                dirpath = assign_dir(prefix=save_dir_prefix, flag=task_args["flag"],
+                                     n_dir=n_dir, dir_size=dir_size)
+                if not os.path.exists(dirpath):
+                    os.makedirs(dirpath)
+                filepath = os.path.join(dirpath, "{}.pkl".format(tid))
+                task_args["flag"] += 1
+                lock.release()
+
+                # 从数据库中获取歌曲的 chorus_start, mp3_path
+                rawmusic_path = conn.query(
+                    table="sub_tracks", targets=["rawmusic_path"], 
+                    conditions={"track_id":tid}, fetchall=False)[0]
+
+                with open(rawmusic_path, "rb") as f:
+                    y = pickle.load(f)
+                embed = vggish(y, fs=22050)
+
+                with open(filepath, 'wb') as f:
+                    pickle.dump(embed, f)
+            except KeyboardInterrupt:
+                print("KeyboardInterrupt. q_tracks size: {}".format(q_tracks.qsize()))
+                break
+            except:
+                print(tid)
+                print(traceback.format_exc())
+        sys.exit(0)
+
+    task_args = {}
+    task_args["flag"] = flag
+    threads_group = ThreadsGroup(task=task, n_thread=5, task_args=task_args)
+    threads_group.start()
+    
+
+
+def build_vggish_examples_dataset():
+    conn = MyConn()
+    tracks = [r[0] for r in conn.query(table="sub_tracks", targets=["track_id"], conditions={"is_valid":1})]
+    save_dir_prefix = "/Volumes/nmusic/NetEase2020/data/vggish_examples"
+    n_dir, dir_size = 1, 100
+    flag, saved_files = count_files(save_dir_prefix, return_files=True) # 已经提取好的歌曲
+    saved_tracks = [x[:-4] for x in saved_files]
+
+    q_tracks = Queue()
+    for t in tracks: 
+        if t not in saved_tracks:
+            q_tracks.put(t)
+    print(q_tracks.qsize())
+    lock = Lock()
+
+    def task(thread_id, task_args):
+        conn = MyConn()
+        while not q_tracks.empty():
+            try:
+                tid = q_tracks.get()
+                
+                lock.acquire()
+                dirpath = assign_dir(prefix=save_dir_prefix, flag=task_args["flag"],
+                                     n_dir=n_dir, dir_size=dir_size)
+                if not os.path.exists(dirpath):
+                    os.makedirs(dirpath)
+                filepath = os.path.join(dirpath, "{}.pkl".format(tid))
+                task_args["flag"] += 1
+                lock.release()
+
+                # 从数据库中获取歌曲的 chorus_start, mp3_path
+                rawmusic_path = conn.query(
+                    table="sub_tracks", targets=["rawmusic_path"], 
+                    conditions={"track_id":tid}, fetchall=False)[0]
+
+                with open(rawmusic_path, "rb") as f:
+                    y = pickle.load(f)
+                    music_vec = waveform_to_examples(y, sample_rate=22050).squeeze(1)
+
+                with open(filepath, 'wb') as f:
+                    pickle.dump(music_vec, f)
+            except KeyboardInterrupt:
+                print("KeyboardInterrupt. q_tracks size: {}".format(q_tracks.qsize()))
+                break
+            except:
+                print(tid)
+                print(traceback.format_exc())
+        sys.exit(0)
+
+    task_args = {}
+    task_args["flag"] = flag
+    threads_group = ThreadsGroup(task=task, n_thread=5, task_args=task_args)
+    threads_group.start()
+
+
+
+
+
+
 
 def chorus_duration_distribution():
     conn = MyConn()
@@ -170,6 +289,49 @@ def chorus_duration_distribution():
     sns.displot(durations)
     plt.show()
 
+
+def build_valid_tracks():
+    '''
+    生成可用的数据集
+    '''
+    # pos
+    conn = MyConn()
+    valid_breakouts = [r[0] for r in conn.query(sql="SELECT id FROM breakouts WHERE is_valid=1 and simi_score>=0.5 and reviews_num>=100 and beta>=50")]
+    pos_r_path = "../data/reviews_feature_words_with_freqs/breakouts_cls.json"
+    neg_r_path = "../data/reviews_feature_words_with_freqs/no_breakouts_cls.json"
+    pos_w_path = "../data_related/tracks/pos_tracks_cls_vgg.txt"
+    pos_d_w_path = "../data_related/tracks/d_pos_track_breakout_cls_vgg.pkl"
+    neg_w_path = "../data_related/tracks/neg_tracks_cls_vgg.txt"
+
+    # pos
+    with open(pos_r_path) as f:
+        data = json.load(f)
+        breakouts_with_music_words = [bid for bid in data if data[bid]["len"]>=5]
+    valid_breakouts = [bid for bid in valid_breakouts if bid in breakouts_with_music_words]
+    d_pos_track_breakout = {}
+    for bid in valid_breakouts:
+        tid = bid.split('-')[0]
+        if tid not in d_pos_track_breakout:
+            d_pos_track_breakout[tid] = bid
+    print("d size:", len(d_pos_track_breakout))
+    valid_pos_tracks = [r[0] for r in conn.query(sql="SELECT track_id FROM sub_tracks WHERE language in ('ch','en') and vggish_examples_path is not null and valid_bnum>0")]
+    pos_tracks_with_valid_breakouts = list(set([bid.split('-')[0] for bid in valid_breakouts]))
+    valid_pos_tracks = [tid for tid in valid_pos_tracks if tid in pos_tracks_with_valid_breakouts]
+    print(len(valid_pos_tracks))
+    with open(pos_w_path, 'w') as f:
+        f.write("\n".join(valid_pos_tracks))
+    with open(pos_d_w_path, "wb") as f:
+        pickle.dump(d_pos_track_breakout, f)
+
+    # neg
+    with open(neg_r_path) as f:
+        data = json.load(f)
+        neg_tracks_with_music_words = [tid for tid in data if data[tid]["len"]>=5]
+    valid_neg_tracks = [r[0] for r in conn.query(sql="SELECT track_id FROM sub_tracks WHERE language in ('ch','en') and vggish_examples_path is not null and valid_bnum=0")]
+    valid_neg_tracks = [tid for tid in valid_neg_tracks if tid in neg_tracks_with_music_words]
+    print(len(valid_neg_tracks))
+    with open(neg_w_path, 'w') as f:
+        f.write("\n".join(valid_neg_tracks))
 
 
 
@@ -196,7 +358,10 @@ def build_train_test_dataset():
 
 
 if __name__ == '__main__':
-    extract_chorus_mark_rawmusic()
+    # build_vggish_embed_dataset()
+    # extract_chorus_mark_rawmusic()
+    build_valid_tracks()
+    # build_vggish_examples_dataset()
 
 
 

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd 
 import logging
 import traceback
+import torch
 
 from gensim.models import Doc2Vec
 
@@ -73,27 +74,29 @@ def get_X_y_embed(tracks_2_labels, conn, d2v_model, music_feature_extractor, int
 
 
 
-def get_X(track_id, use_mp3, use_lyrics, use_artist, use_tags,
-        lyrics_d2v_model, d_artist_vec):
+def get_X(track_id, use_mp3, use_lyrics, use_artist,
+        lyrics_d2v_model, d_artist_vec, music_datatype="mfcc"):
     conn = MyConn()
 
-    rawmusic_path, lyrics_path, artist = conn.query(
+    rawmusic_path, vggish_embed_path, lyrics_path, artist = conn.query(
         table="sub_tracks", conditions={"track_id":track_id}, fetchall=False,
-        targets=["rawmusic_path", "lyrics_path", "artist"])
+        targets=["rawmusic_path", "vggish_embed_path", "lyrics_path", "artist"])
 
     vecs = []
     if use_mp3:
-        mfcc_vec = get_mfcc(rawmusic_path).ravel()
-        vecs.append(mfcc_vec)
+        if music_datatype=="mfcc":
+            music_vec = get_mfcc(rawmusic_path).ravel()
+        elif music_datatype=="vggish":
+            with open(vggish_embed_path, "rb") as f:
+                music_vec = pickle.load(f).detach().numpy()
+        vecs.append(music_vec)
     if use_lyrics:
         lyrics_vec = get_d2v_vector(lyrics_path, lyrics_d2v_model)
         vecs.append(lyrics_vec)
     if use_artist:
         artist_vec = d_artist_vec[artist.lower().strip()]
         vecs.append(artist_vec)
-    # if use_tags:
-    #     tags_vec = get_tags_vector(tags.split())
-    #     vecs.append(tags_vec)
+
     features_vec = concatenate_features(vecs)
 
     return features_vec
@@ -102,11 +105,12 @@ def get_X(track_id, use_mp3, use_lyrics, use_artist, use_tags,
 
 def build_dataset():
     conn = MyConn()
-    dataset_size = 600
-    pos_tracks = conn.query(sql="SELECT track_id FROM sub_tracks WHERE valid_bnum>0 AND rawmusic_path IS NOT NULL LIMIT {}".format(dataset_size))
-    neg_tracks = conn.query(sql="SELECT track_id FROM sub_tracks WHERE valid_bnum=0 AND rawmusic_path IS NOT NULL LIMIT {}".format(dataset_size))
-    lyrics_d2v_model = Doc2Vec.load("../models/d2v/d2v_a2.mod") # 歌词d2v模型
-    with open("../data/artists_vec_dict.pkl", "rb") as f:
+    dataset_size = 1500
+    # conditional_sql = "rawmusic_path IS NOT NULL AND language in ('ch', 'en')"
+    pos_tracks = conn.query(sql="SELECT track_id FROM sub_tracks WHERE valid_bnum>0 AND is_valid=1 LIMIT {}".format(dataset_size))
+    neg_tracks = conn.query(sql="SELECT track_id FROM sub_tracks WHERE valid_bnum=0 AND is_valid=1 LIMIT {}".format(dataset_size))
+    lyrics_d2v_model = Doc2Vec.load("../models/d2v/d2v_b1.mod") # 歌词d2v模型
+    with open("../data/artists_vec_dict_r_minmax.pkl", "rb") as f:
         d_artist_vec = pickle.load(f)
 
     X, y = [], []
@@ -116,7 +120,7 @@ def build_dataset():
         "use_mp3": True,
         "use_lyrics": True,
         "use_artist": True,
-        "use_tags": False
+        "music_datatype": "vggish"
     }
 
     def add_data(tracks, label):
@@ -133,8 +137,9 @@ def build_dataset():
     add_data(pos_tracks, 1)
     add_data(neg_tracks, 0)
 
-    dataset_name = "m"*args["use_mp3"] + "l"*args["use_lyrics"] + "a"*args["use_artist"] + "t"*args["use_tags"]\
-                    + str(len(pos_tracks))
+    dataset_index = "0317_vggish"
+    dataset_name = "m"*args["use_mp3"] + "l"*args["use_lyrics"] + "a"*args["use_artist"]\
+                    + str(len(pos_tracks)) +'_'+ str(dataset_index)
     with open("../data/dataset/{}.pkl".format(dataset_name), 'wb') as f:
         pickle.dump([X,y], f)
 

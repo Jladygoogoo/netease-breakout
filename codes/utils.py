@@ -147,16 +147,75 @@ def count_files(dirpath, return_files=False):
     return count
 
 
-def get_mfcc(path):
+def get_mfcc(filepath, config=None):
     '''
-    param: path: 保存了提前提取的采样数据的.pkl文件路径
-    return: mfcc序列 [<numpy>(20, n_frames)]
+    将文件中的原采样数据转换为 mfcc。
+    Args: 
+        filepath: 保存了提前提取的采样数据的.pkl文件路径
+    return: mfcc ~ (config.NUM_MFCC, frames_num)
     '''
-    with open(path, 'rb') as f:
+    with open(filepath, 'rb') as f:
         y = pickle.load(f)
+    if config and config.DURATION==10: # 原采样长度为20s
+        y = y[:len(y)//2] # duration=10s
 
-    mfcc = librosa.feature.mfcc(y) # sr=22050
+    n_mfcc = 20
+    if config:
+        n_mfcc = config.NUM_MFCC
+    mfcc = librosa.feature.mfcc(y, n_mfcc=n_mfcc) # sr=22050
     return mfcc
+
+
+def get_melspectrogram(filepath, config=None):
+    '''
+    将文件中的原采样数据转换为 melspectrogram
+    Args: 
+        filepath: 保存了提前提取的采样数据的.pkl文件路径
+    return: mel_S ~ (config.NUM_MELS, frames_num)
+    '''
+    with open(filepath, "rb") as f:
+        y = pickle.load(f) # duration=20s
+    if config and config.DURATION==10: # 原采样长度为20s
+        y = y[:len(y)//2] # duration=10s
+
+    S = librosa.stft(y, n_fft=config.FFT_SIZE, hop_length=config.HOP_SIZE, win_length=config.WIN_SIZE)
+    mel_basis = librosa.filters.mel(config.SAMPLE_RATE, n_fft=config.FFT_SIZE, n_mels=config.NUM_MELS)
+    mel_S = np.dot(mel_basis, np.abs(S))
+    mel_S = np.log10(1+10*mel_S)
+    mel_S = mel_S.T # 转置是否会有区别
+    # print(mel_S.shape) # (431, 128)
+
+    return mel_S
+
+
+def get_rawmusic(filepath, half_cut=True, config=None):
+    '''
+    提取出文件中的原采样数据。
+    Args: 
+        filepath: 保存了提前提取的采样数据的.pkl文件路径
+        half_cut: 原采样长度为20s，如果half_cut=True则采样长度为10s
+    return: y
+    '''
+    with open(filepath, "rb") as f:
+        y = pickle.load(f)
+    if half_cut:
+        y = y[:len(y)//2] 
+    return y
+
+
+def get_vggish(filepath, vggish, half_cut=True):
+    '''
+    得到音频数据的vggish嵌入表示。
+    '''
+    with open(filepath, "rb") as f:
+        y = pickle.load(f)
+    if half_cut:
+        y = y[:len(y)//2] 
+    embed = vggish(y, fs=22050)
+
+    return embed
+
+
 
 def get_d2v_vector(r_path, model):
     '''
@@ -178,6 +237,104 @@ def get_w2v_vector(word, model):
     if not model.wv.__contains__(word):
         return None
     return model.wv[word]
+
+
+def get_reviews_topk_words(track_id, is_breakout, key):
+    conn = MyConn()
+    if key=="w_fake":
+        col = "feature_words"
+    elif key=="wo_fake":
+        col = "feature_words_wo_fake"
+    elif key=="tfidf":
+        col = "feature_words_tfidf"
+    elif key=="candidates":
+        col = "feature_words_candidates"
+
+    if is_breakout==1:
+        bids = [r[0] for r in conn.query(sql="SELECT id FROM breakouts WHERE is_valid=1 and simi_score>=0.5 and track_id={}".format(track_id))]
+        for bid in bids:
+            feature_words = conn.query(sql="SELECT {} FROM breakouts_feature_words WHERE id='{}'".format(col, bid))
+            if feature_words and feature_words[0][0]:
+                break
+    else:
+        feature_words = conn.query(sql="SELECT {} FROM no_breakouts_feature_words WHERE track_id={}".format(col, track_id))
+        
+    if len(feature_words)>0:
+        feature_words = feature_words[0][0].split()
+    return feature_words
+
+
+def get_reviews_vec(track_id, breakout, w2v_model, key="wo_fake"):
+    '''
+    指定歌曲获取评论文本向量组
+    '''
+    conn = MyConn()
+    if key=="w_fake":
+        col = "feature_words"
+    elif key=="wo_fake":
+        col = "feature_words_wo_fake"
+    elif key=="tfidf":
+        col = "feature_words_tfidf"
+    elif key=="candidates":
+        col = "feature_words_candidates"
+
+    if breakout==1:
+        bids = [r[0] for r in conn.query(sql="SELECT id FROM breakouts WHERE is_valid=1 and simi_score>=0.5 and track_id={}".format(track_id))]
+        for bid in bids:
+            feature_words = conn.query(sql="SELECT {} FROM breakouts_feature_words WHERE id='{}'".format(col, bid))
+            if feature_words and feature_words[0][0]:
+                break
+    else:
+        feature_words = conn.query(sql="SELECT {} FROM no_breakouts_feature_words WHERE track_id={}".format(col, track_id))
+        
+    if len(feature_words)>0:
+        feature_words = feature_words[0][0].split()
+    # print(breakout, feature_words)
+    reviews_vec = []
+    for w in feature_words:
+        vec = get_w2v_vector(w, w2v_model)
+        if vec is not None:
+            reviews_vec.append(vec)
+    return reviews_vec
+
+
+def get_reviews_vec_with_freq(track_id, breakout, w2v_model, d_breakouts, d_no_breakouts, d_pos_track_breakout, with_freq=True):
+    conn = MyConn()
+    if breakout:
+        bid = d_pos_track_breakout[track_id]
+        feature_words = d_breakouts[bid]["words"]
+        freqs = d_breakouts[bid]["freqs"]
+        
+    else:
+        feature_words = d_no_breakouts[track_id]["words"]
+        freqs = d_no_breakouts[track_id]["freqs"]
+        
+    if len(feature_words)<5:
+        print(track_id, breakout)
+
+    reviews_vec = []
+    for i, w in enumerate(feature_words):
+        vec= get_w2v_vector(w, w2v_model)
+        if with_freq:
+            vec = np.concatenate((vec, np.array([freqs[i]*100])))
+        reviews_vec.append(vec)
+    return reviews_vec
+
+
+
+
+def resort_words_by_tfidf(words, dictionary, tfidf_model, dict_itos=None):
+    '''
+    将词语按照 tfidf 模型重新排序。
+    '''
+    bow = dictionary.doc2bow(words)  
+    tfidf_sorted = sorted(tfidf_model[bow], key=lambda x:x[1], reverse=True) 
+    if not dict_itos:
+        stoi = dictionary.token2id
+        dict_itos = dict(zip(stoi.values(), stoi.keys()))
+    words_sorted = [dict_itos[r[0]] for r in tfidf_sorted]
+
+    return words_sorted
 
 
 def get_tags_vector(tags):
@@ -242,6 +399,7 @@ def get_chorus(input_file, n_fft=2**14, clip_length=15):
 
 
 if __name__ == '__main__':
-    pass
+    from MyModel.config import Config 
+    get_melspectrogram("/Volumes/nmusic/NetEase2020/data/chorus_mark_rawmusic/0/101079.pkl", Config())
 
 

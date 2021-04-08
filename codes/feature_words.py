@@ -7,12 +7,19 @@ import random
 import traceback
 from collections import Counter
 from multiprocessing import Lock as PLock
+import matplotlib.pyplot as plt
 
+from gensim import models, corpora
 from gensim.models import Word2Vec
+from sklearn.manifold import TSNE
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
 
 from connect_db import MyConn
 from threads import ThreadsGroup, ProcessGroup
-from utils import assign_dir
+from utils import assign_dir, resort_words_by_tfidf
 from preprocess import tags_extractor
 from fp_growth import FPGrowth
 
@@ -274,6 +281,336 @@ def co_occurance():
 
 
 
+def add_breakouts_feature_words_to_db_LGY():
+    '''
+    直接在数据库中更新feature_words，使用多进程
+    '''
+    def task(pid, task_args):
+        conn = MyConn()
+        w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+        while 1:
+            task_args["lock"].acquire()
+            res = conn.query(targets=["id", "text_path"], conditions={"have_words":0}, 
+                    table="breakouts", fetchall=False)
+            if res is not None:
+                id_, text_path = res
+                conn.update(table="breakouts",
+                            settings={"have_words": 1},
+                            conditions={"id": id_})
+                task_args["lock"].release()
+
+                try:
+                    feature_words = tags_extractor(open(text_path).read(), topk=10, w2v_model=w2v_model)
+                    conn.insert(table="breakouts_feature_words_c3",
+                                settings={"id":id_, "feature_words":" ".join(feature_words)})
+
+                    # print("[Process-{}] id: {}, feature_words: {}".format(pid, id_, feature_words))
+                except:
+                    conn.update(table="breakouts",
+                                settings={"have_words": 0},
+                                conditions={"id": id_})
+                    print(id_)
+                    print(traceback.format_exc())
+                    break
+
+            else:
+                task_args["lock"].release()
+                break
+
+    lock = PLock()
+    task_args = {"lock":lock}
+    process_group = ProcessGroup(task=task, n_procs=1, task_args=task_args)
+    process_group.start()
+
+
+
+def get_feature_words(text, topk=10, mode="raw", w2v_model=None, return_freq=False, candidates=None,
+                    stops=None, tfidf_model=None, dictionary=None, dict_itos=None):
+    '''
+    提取关键词。
+    params:
+        text: 文本内容
+        topk: 关键词的个数
+        mode: 提取方式。"raw"表示直接使用词频，"stop"结合停词列表过滤再使用词频，
+        "tfidf"结合tfidf_model, dictionary, dict_itos得到关键词
+    '''
+    if mode=="raw":
+        feature_words = tags_extractor(text, topk=topk, w2v_model=w2v_model, return_freq=return_freq)
+    elif mode=="stops":
+        if stops==None:
+            raise RuntimeError("stops can't be NONE.")
+        feature_words = tags_extractor(text, topk=topk, w2v_model=w2v_model, stops_sup=stops, return_freq=return_freq)
+    elif mode=="tfidf":
+        feature_words = tags_extractor(text, topk=topk*2, w2v_model=w2v_model, return_freq=return_freq)
+        if return_freq:
+            words, freqs = zip(*feature_words)
+            sorted_words = resort_words_by_tfidf(words, tfidf_model=tfidf_model, 
+                                                dictionary=dictionary, dict_itos=dict_itos)
+            sorted_freqs = [freqs[words.index(w)] for w in sorted_words]
+            feature_words = list(zip(sorted_words, sorted_freqs))[:topk]
+        else:
+            feature_words = resort_words_by_tfidf(feature_words, tfidf_model=tfidf_model, 
+                                                dictionary=dictionary, dict_itos=dict_itos)[:topk]
+
+    elif mode=="candidates":
+        feature_words = tags_extractor(text, topk=None, w2v_model=w2v_model, return_freq=return_freq)
+        can_feature_words = []
+        if return_freq:
+            for p in feature_words:
+                if p[0] in candidates:
+                    can_feature_words.append(p)
+        else:
+            for w in feature_words:
+                if w in candidates:
+                    can_feature_words.append(w)
+        feature_words = can_feature_words[:topk]
+
+    return feature_words
+
+
+
+def add_breakouts_feature_words_to_db():
+    '''
+    向breakouts_feature_words中添加数据。
+    '''
+    conn = MyConn()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    candidates = open("../resources/music_words_cbm.txt").read().splitlines()
+    # tfidf_model = models.TfidfModel.load("../models/bow/corpora_tfidf.model")
+    # dictionary = corpora.Dictionary.load("../models/bow/corpora_dict.dict")
+    # stoi = dictionary.token2id
+    # itos = dict(zip(stoi.values(), stoi.keys()))
+    rubbish_words_fake = open("../resources/rubbish_words_fake.txt").read().splitlines()
+    data = conn.query(sql="SELECT id, track_id, reviews_text_path FROM breakouts WHERE is_valid=1 AND \
+                                track_id IN (SELECT track_id FROM sub_tracks WHERE is_valid=1)")
+
+    print(len(data))
+    for id_, track_id, text_path in data:
+        try:
+            text = open(text_path).read()
+            feature_words_mode = "candidates" # raw, stop, tfidf
+            col = "feature_words_candidates" # feature_words, feature_words_wo_fake, feature_words_tfidf
+            feature_words = get_feature_words(text, topk=10, mode=feature_words_mode, w2v_model=w2v_model, candidates=candidates, return_freq=True)
+            for p in feature_words:
+                print("{}:{:.3f}".format(p[0],p[1]*100), end=" ")
+            print()
+            if len(feature_words)<5: 
+                print(track_id, "not enough words.")
+                continue
+            # feature_words = " ".join(feature_words)
+            # conn.insert(table="breakouts_feature_words", settings={"id":id_, "track_id":track_id, col:feature_words})
+            # conn.update(table="breakouts_feature_words", settings={col:feature_words}, conditions={"id":id_})
+        except KeyboardInterrupt:
+            break
+        except:
+            print(id_)
+            print(traceback.format_exc())   
+
+
+
+def add_no_breakouts_feature_words_to_db():
+    '''
+    向表格 no_breakouts_feature_words 中添加数据。
+    '''
+    conn = MyConn()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    rubbish_words_fake = open("../resources/rubbish_words_fake.txt").read().splitlines()
+    candidates = open("../resources/music_words_cbm.txt").read().splitlines()
+    # tfidf_model = models.TfidfModel.load("../models/bow/corpora_tfidf.model")
+    # dictionary = corpora.Dictionary.load("../models/bow/corpora_dict.dict")
+    # stoi = dictionary.token2id
+    # itos = dict(zip(stoi.values(), stoi.keys()))
+    data = conn.query(sql="SELECT id, track_id, text_path FROM no_breakouts")
+    d_data = {}
+    for id_, track_id, text_path in data:
+        if track_id in d_data:
+            d_data[track_id].append((id_, text_path))
+        else:
+            d_data[track_id] = [(id_, text_path)]
+    print(len(d_data))
+
+    for track_id, v in d_data.items():
+        try:
+            text = ""
+            for id_, text_path in v:
+                text += open(text_path).read()
+            feature_words_mode = "candidates" # raw, stop, tfidf
+            col = "feature_words_candidates" # feature_words, feature_words_wo_fake, feature_words_tfidf
+            feature_words = get_feature_words(text, topk=10, mode=feature_words_mode, w2v_model=w2v_model, candidates=candidates, return_freq=True)          
+            for p in feature_words:
+                print("{}:{:.3f}".format(p[0],p[1]*100), end=" ")
+            print()            
+            if len(feature_words)<5: 
+                print(track_id, "not enough words.")
+                continue
+            # feature_words = " ".join(feature_words)
+            # conn.insert(table="no_breakouts_feature_words", settings={"id":id_, "track_id":track_id, col:feature_words})
+            # conn.update(table="no_breakouts_feature_words", settings={col:feature_words}, conditions={"track_id":track_id})
+        except KeyboardInterrupt:
+            break
+        except:
+            print(track_id)
+            print(traceback.format_exc())
+
+
+
+
+def add_breakouts_feature_words_to_json():
+    conn = MyConn()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    candidates = open("../resources/music_words/music_words_cls_pos_pred.txt").read().splitlines()
+    # remove = open("../resources/music_words/music_words_similar.txt").read().splitlines()
+    # candidates = [w for w in candidates if w not in remove]
+    data = conn.query(sql="SELECT id, track_id, reviews_text_path FROM breakouts WHERE is_valid=1 AND \
+                                track_id IN (SELECT track_id FROM sub_tracks WHERE is_valid=1)")
+
+
+    json_data = {}
+    for id_, track_id, text_path in data:
+        try:
+            text = open(text_path).read()
+            feature_words_mode = "candidates" # raw, stop, tfidf
+            feature_words = get_feature_words(text, topk=10, mode=feature_words_mode, w2v_model=w2v_model, candidates=candidates, return_freq=True)          
+            words, freqs = zip(*feature_words)
+            json_data[id_] = {"words":words, "freqs":freqs, "len": len(words)}
+            if len(feature_words)<5: 
+                print(id_, "not enough words.")
+        except KeyboardInterrupt:
+            break
+        except:
+            print(track_id)
+            print(traceback.format_exc())
+    with open("../data/reviews_feature_words_with_freqs/breakouts_cls.json", 'w') as f:
+        json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+
+
+
+def add_no_breakouts_feature_words_to_json():
+    conn = MyConn()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    rubbish_words_fake = open("../resources/rubbish_words_fake.txt").read().splitlines()
+    candidates = open("../resources/music_words/music_words_cls_pos_pred.txt").read().splitlines()
+    # remove = open("../resources/music_words/music_words_similar.txt").read().splitlines()
+    # candidates = [w for w in candidates if w not in remove]
+    data = conn.query(sql="SELECT id, track_id, text_path FROM no_breakouts")
+    d_data = {}
+    for id_, track_id, text_path in data:
+        if track_id in d_data:
+            d_data[track_id].append((id_, text_path))
+        else:
+            d_data[track_id] = [(id_, text_path)]
+    print(len(d_data))
+
+    json_data = {}
+    for track_id, v in list(d_data.items()):
+        try:
+            text = ""
+            for id_, text_path in v:
+                text += open(text_path).read()
+            feature_words_mode = "candidates" # raw, stop, tfidf
+            feature_words = get_feature_words(text, topk=10, mode=feature_words_mode, w2v_model=w2v_model, candidates=candidates, return_freq=True)          
+            words, freqs = zip(*feature_words)
+            json_data[track_id] = {"words":words, "freqs":freqs, "len":len(words)}
+            if len(feature_words)<5: 
+                print(track_id, "not enough words.")
+        except KeyboardInterrupt:
+            break
+        except:
+            print(track_id)
+            print(traceback.format_exc())
+    with open("../data/reviews_feature_words_with_freqs/no_breakouts_cls.json", 'w') as f:
+        json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+
+
+def tnse():
+    music_words_pos = open("../resources/music_words/music_words_cls_pos_pred.txt").read().splitlines()
+    music_words_neg = open("../resources/music_words/music_words_cls_neg_pred.txt").read().splitlines()
+    music_words = music_words_pos + music_words_neg
+    # music_words = open("../resources/music_words/music_words_cbm.txt").read().splitlines()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    music_words_vec = [w2v_model.wv[w] for w in music_words]
+    tnse_model = TSNE(perplexity=3.0)
+    Y = tnse_model.fit_transform(music_words_vec)
+    for i in range(len(Y)):
+        if Y[i][0]<=-100 or Y[i][0]>=90 or Y[i][1]<=-100 or Y[i][1]>=90:
+            print(music_words[i])
+
+    plt.scatter(Y[:,0], Y[:,1])
+    plt.title("music_words_netease_seed")
+    plt.show()
+
+
+def music_words_classifier_select():
+    pos_words = open("../resources/music_words/music_words_cls_pos.txt").read().splitlines()
+    neg_words = open("../resources/music_words/music_words_cls_neg.txt").read().splitlines()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    X = [w2v_model.wv[w] for w in pos_words] + [w2v_model.wv[w] for w in neg_words]
+    y = [1]*len(pos_words) + [0]*len(neg_words)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=21, shuffle=True)
+    print("train dataset: pos({})/total({})={:.2f}".format(sum(y_train), len(y_train), sum(y_train)/len(y_train)))
+    print("test dataset: pos({})/total({})={:.2f}".format(sum(y_test), len(y_test), sum(y_train)/len(y_train)))
+
+    models = [
+      SVC(gamma=1, C=0.1),
+      RandomForestClassifier(max_depth=5, n_estimators=10),
+      LogisticRegression(solver="lbfgs")
+    ]
+    print("train:")
+    for model in models:
+        m_name = model.__class__.__name__
+        accs = cross_val_score(model, X_train, y_train, cv=5, scoring="accuracy")
+        acc = accs.mean()
+        print("{}: {:.3f}".format(m_name, acc))
+
+    # 得到逻辑回归的效果最好 acc=0.907
+    model = LogisticRegression(solver="lbfgs").fit(X_train, y_train)
+    pred_test = model.predict(X_test)
+    corrects = sum([1 if pred_test[i]==y_test[i] else 0 for i in range(len(pred_test))])
+    print("test:")
+    print("{}: {:.3f}".format(model.__class__.__name__, corrects/len(y_test)))
+
+
+def music_words_from_classifier():
+    '''
+    使用分类器得到music_words
+    '''
+    # 使用全部的人工数据训练逻辑回归模型
+    pos_words = open("../resources/music_words/music_words_cls_pos.txt").read().splitlines()
+    neg_words = open("../resources/music_words/music_words_cls_neg.txt").read().splitlines()
+    w2v_model = Word2Vec.load("../models/w2v/c4.mod")
+    X = [w2v_model.wv[w] for w in pos_words] + [w2v_model.wv[w] for w in neg_words]
+    y = [1]*len(pos_words) + [0]*len(neg_words)
+    model = LogisticRegression(solver="lbfgs").fit(X, y)
+
+    # 对关键词进行分类
+    with open("../resources/feature_words_counter_d.pkl", "rb") as f:
+        d_words_freq = pickle.load(f)
+    # print(len(d_words_freq))
+    # size = 13392
+    # print(np.median(list(d_words_freq.values())))
+    median = 9.470145366731379e-06
+    pos_words_pred = []
+    neg_words_pred = []
+    for word, freq in d_words_freq.items():
+        if freq<=median or not w2v_model.wv.__contains__(word): 
+            continue
+        vec = w2v_model.wv[word]
+        word_label_prob = model.predict_proba([vec])[0][1]
+        if word_label_prob<=0.3:
+            neg_words_pred.append(word)
+        elif word_label_prob>=0.8:
+            pos_words_pred.append(word)
+        else:
+            continue
+
+    print(len(pos_words_pred), len(neg_words_pred))
+    with open("../resources/music_words/music_words_cls_pos_pred.txt", 'w') as f:
+        f.write("\n".join(pos_words_pred))
+    with open("../resources/music_words/music_words_cls_neg_pred.txt", 'w') as f:
+        f.write("\n".join(neg_words_pred))
+
 
 
 
@@ -281,7 +618,13 @@ if __name__ == '__main__':
     # add_feature_words_to_db()
     # rubbish_tags()
     # feature_words_counter()
-    special_words()
+    # special_words()
     # co_occurance()
     # add_feature_words_to_db()
     # filtered_feature_words()
+    # add_breakouts_feature_words_to_json()
+    # add_no_breakouts_feature_words_to_json()
+    # add_breakouts_feature_words_to_db()
+    tnse()
+    # music_words_classifier()
+    # music_words_from_classifier()

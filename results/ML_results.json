@@ -1,0 +1,92 @@
+[
+	{
+		"dataset": "../data/dataset/mla1000.pkl",
+		"results": [
+			{
+				"model": "RandomForestClassifier",
+				"params": {"max_depth": 10, "n_estimators": 30},
+				"accuracy": 0.547,
+				"f1-score": 0.563,
+				"roc_auc": 0.570,
+			},
+			{
+				"model": "AdaBoost",
+				"params": {"learning_rate": 0.1, "n_estimators": 50},
+				"accuracy": 0.574,
+				"f1-score": 0.592,
+				"roc_auc": 0.612,
+			},
+			{
+				"model": "LightGBM",
+				"params": {"learning_rate": 0.1, "lambda_l1": 0.1, "lambda_l2": 0.2, "max_depth": 6, "num_leaves": 50, "objective": "binary"},
+				"accuracy": 0.597,
+				"f1-score": 0.598,
+				"roc_auc": 0.602,
+			},
+		]
+	},
+	{
+		"dataset": "../data/dataset/mla1000_0306.pkl",
+		"results": [
+			{
+				"model": "RandomForestClassifier",
+				"params": {"max_depth": 10, "n_estimators": 30},
+				"accuracy": 0.567,
+				"f1-score": 0.581,
+				"roc_auc": 0.596,
+			},
+			{
+				"model": "AdaBoost",
+				"params": {"learning_rate": 0.1, "n_estimators": 50},
+				"accuracy": 0.630,
+				"f1-score": 0.650,
+				"roc_auc": 0.706,
+			},
+			{
+				"model": "LightGBM",
+				"params": {"learning_rate": 0.1, "lambda_l1": 0.1, "lambda_l2": 0.2, "max_depth": 6, "num_leaves": 50, "objective": "binary"},
+				"accuracy": 0.652,
+				"f1-score": 0.659,
+				"roc_auc": 0.694,
+			},
+		]
+	},
+	{
+		"dataset": "../data/dataset/mla1500_0316_10.pkl",
+		"results": [
+			{
+				"model": "AdaBoost",
+				"params": {"learning_rate": 0.1, "n_estimators": 50},
+				"accuracy": 0.667,
+				"f1-score": 0.679,
+				"roc_auc": 0.740,
+			},
+			{
+				"model": "LightGBM",
+				"params": {"learning_rate": 0.1, "lambda_l1": 0.1, "lambda_l2": 0.2, "max_depth": 6, "num_leaves": 50, "objective": "binary"},
+				"accuracy": 0.722,
+				"f1-score": 0.714,
+				"roc_auc": 0.786,
+			},
+		]
+	},
+	{
+		"dataset": "../data/dataset/mla1500_0317_vggish.pkl",
+		"results": [
+			{
+				"model": "AdaBoost",
+				"params": {"learning_rate": 0.1, "n_estimators": 50},
+				"accuracy": 0.667,
+				"f1-score": 0.674,
+				"roc_auc": 0.740,
+			},
+			{
+				"model": "LightGBM",
+				"params": {"learning_rate": 0.1, "lambda_l1": 0.1, "lambda_l2": 0.2, "max_depth": 6, "num_leaves": 50, "objective": "binary"},
+				"accuracy": 0.735,
+				"f1-score": 0.725,
+				"roc_auc": 0.793,
+			},
+		]
+	},
+]
