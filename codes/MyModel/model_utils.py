@@ -1,10 +1,14 @@
 import os
 import json
 import numpy as np 
+import pickle
+import librosa
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from model import MusicVGG
 
 
 def get_pairwise_embed(feature_words, embed1, semantic_feature_embed, word_to_vec):
@@ -210,5 +214,90 @@ def get_contrastive_cos_loss(weight, gamma, symmetric=False):
     return loss
 
 
+
+def get_mel_3seconds_groups(audio_file, config, offset, duration):
+    '''For an efficient computation, we split the full music spectrograms in patches of length n_frames with overlap.
+
+    INPUT
+    
+    - file_name: path to the music file to tag.
+    Data format: string.
+    Example: './audio/TRWJAZW128F42760DD_test.mp3'
+
+    - n_frames: length (in frames) of the input spectrogram patches.
+    Data format: integer.
+    Example: 187
+        
+    - overlap: ammount of overlap (in frames) of the input spectrogram patches.
+    Note: Set it considering n_frames.
+    Data format: integer.
+    Example: 10
+    
+    OUTPUT
+    
+    - batch: batched audio representation. It returns spectrograms split in patches of length n_frames with overlap.
+    Data format: 3D np.array (batch, time, frequency)
+    
+    - audio_rep: raw audio representation (spectrogram).
+    Data format: 2D np.array (time, frequency)
+    '''
+
+    # 3s对应的帧数
+    n_frames = librosa.time_to_frames(3, sr=config.SR, n_fft=config.FFT_SIZE, hop_length=config.FFT_HOP) + 1
+    overlap = n_frames # 不重叠
+
+    audio, sr = librosa.load(audio_file, sr=config.SR, offset=offset, duration=duration)
+    audio_rep = librosa.feature.melspectrogram(y=audio, 
+                                               sr=sr,
+                                               hop_length=config.FFT_HOP,
+                                               n_fft=config.FFT_SIZE,
+                                               n_mels=config.NUM_MELS).T
+    audio_rep = audio_rep.astype(np.float16)
+    audio_rep = np.log10(10000 * audio_rep + 1)
+
+    # batch it for an efficient computing
+    first = True
+    last_frame = audio_rep.shape[0] - n_frames + 1
+    # +1 is to include the last frame that range would not include
+    for time_stamp in range(0, last_frame, overlap):
+        patch = np.expand_dims(audio_rep[time_stamp : time_stamp + n_frames, : ], axis=0)
+        if first:
+            batch = patch
+            first = False
+        else:
+            batch = np.concatenate((batch, patch), axis=0)
+
+    return batch
+
+
+
+def musicvgg_load_pretrained_params(params_filepath, musicvgg):
+    # 将原tensorflow模型MTT_VGG上的参数重载入本MusicVGG模型中
+    with open(params_filepath, "rb") as f:
+        tf_params = pickle.load(f)
+
+    for k in musicvgg.state_dict():
+        if "fc" in k:
+            if "weight" in k:
+                musicvgg.state_dict()[k] = torch.Tensor(tf_params["dense/kernel:0"])
+            else:
+                musicvgg.state_dict()[k] = torch.Tensor(tf_params["dense/bias:0"])
+            continue
+
+        layer_index = int(k.split('.')[1])
+        if layer_index%4 != 0: # batchNorm
+            continue 
+        tf_cnn_index = layer_index // 4 + 1
+        if "weight" in k:
+            musicvgg.state_dict()[k] = torch.Tensor(tf_params["{}CNN/kernel:0".format(tf_cnn_index)])
+        else:
+            musicvgg.state_dict()[k] = torch.Tensor(tf_params["{}CNN/bias:0".format(tf_cnn_index)])
+
+
+
+def musicnn_load_pretrained_params(params_filepath, musicnn):
+    # 将原tensorflow模型MTT_CNN上的参数重载入本MusiCNN模型中
+    with open(params_filepath, "rb") as f:
+        tf_params = pickle.load(f) 
 
 

@@ -17,6 +17,7 @@ from config import Config
 
 sys.path.append("/Users/inkding/Desktop/netease2/codes")
 from utils import get_mfcc, get_d2v_vector, get_w2v_vector, get_melspectrogram, get_reviews_vec, get_reviews_vec_with_freq, get_reviews_topk_words
+from model_utils import get_mel_3seconds_groups
 from connect_db import MyConn
 
 
@@ -54,9 +55,9 @@ class MyDataset(data.Dataset):
         必须定义，使用index获取一条完整的数据
         '''
         tid, label = self.data[index]
-        rawmusic_path, vggish_embed_path, vggish_examples_path, lyrics_path, artist = self.conn.query(
+        rawmusic_path, vggish_embed_path, vggish_examples_path, mel_3seconds_groups_path, lyrics_path, artist, chorus_start = self.conn.query(
             table="sub_tracks", conditions={"track_id":tid}, fetchall=False,
-            targets=["rawmusic_path", "vggish_embed_path", "vggish_examples_path", "lyrics_path", "artist"])
+            targets=["rawmusic_path", "vggish_embed_path", "vggish_examples_path", "mel_3seconds_groups_path", "lyrics_path", "artist", "chorus_start"])
 
         if self.config.MUSIC_DATATYPE=="vggish":
             with open(vggish_embed_path, "rb") as f:
@@ -67,6 +68,9 @@ class MyDataset(data.Dataset):
             music_vec = torch.Tensor(get_mfcc(rawmusic_path, config=self.config))
         elif self.config.MUSIC_DATATYPE=="vggish_examples":
             with open(vggish_examples_path, "rb") as f:
+                music_vec = pickle.load(f)            
+        elif self.config.MUSIC_DATATYPE=="mel_3seconds_groups":
+            with open(mel_3seconds_groups_path, "rb") as f:
                 music_vec = pickle.load(f)
         lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
         artist_vec = torch.Tensor(self.d_artist_vec[artist.lower().strip()])

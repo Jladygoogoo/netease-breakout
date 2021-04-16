@@ -45,6 +45,22 @@ def make_layers_vgg():
     return nn.Sequential(*layers)
 
 
+def make_layers_vgg2():
+    # musicnn: pre-trained convolutional neural networks for music audio tagging
+    layers = []
+    maxpool_set = [(4,1,2),(2,2,2),(2,2,2),(2,2,2),(4,4,4)]
+    in_channels = 1
+
+    for s in maxpool_set:
+        conv2d = nn.Conv2d(in_channels, 128, kernel_size=3, padding=1)
+        layers += [conv2d, nn.ReLU(inplace=True)]
+        in_channels = 128
+        layers += [nn.BatchNorm2d(num_features=in_channels)]
+        layers += [nn.MaxPool2d(kernel_size=(s[0],s[1]), stride=(s[2],s[2]))]
+
+    return nn.Sequential(*layers)
+
+
 class CustomCNN(nn.Module):
     '''
     一个CNN模型
@@ -99,8 +115,29 @@ class CustomCNN(nn.Module):
 
 
 
+class MusicVGG(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.features = make_layers_vgg2()
+        self.fc = nn.Linear(in_features=2*128, out_features=50) # 原模型输出音乐种类数为50
+
+    def forward(self, x):
+        x = x.unsqueeze(1) # 增加channel纬度 (batch_size, 1, n_frames, n_mels)
+        x = self.features(x) # 经过卷积网络
+        x = x.view(x.shape[0], -1) # (batch_size, -1)
+        return x
+
+
+# class MusiCNN(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.features = 
+
+
+
+
 class VGG(nn.Module):
-    def __init__(self, features):
+    def __init__(self):
         super(VGG, self).__init__()
         self.features = make_layers_vgg()
         self.embeddings = nn.Sequential(
@@ -199,5 +236,8 @@ class TextCNNEmbed(nn.Module):
         x = F.dropout(x, p=self.config.TEXTCNN_DROPOUT_RATE)
         output = self.fc(x)
         return output
+
+
+
 
 

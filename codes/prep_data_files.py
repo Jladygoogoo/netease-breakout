@@ -21,10 +21,11 @@ import soundfile as sf
 from connect_db import MyConn
 from threads import ThreadsGroup, ProcessGroup
 from breakout_tools import get_reviews_df, get_reviews_count, get_breakouts, get_breakouts_text, get_no_breakouts
-from utils import assign_dir, get_tracks_set_db, get_dir_item_set, get_chorus
+from utils import assign_dir, get_tracks_set_db, get_dir_item_set, get_chorus, get_mel_3seconds_groups
 from preprocess import tags_extractor
 from utils import count_files, get_chorus
 from vggish_input import waveform_to_examples
+from config import Config
 
 
 def get_from_db(track_id, targets):
@@ -273,6 +274,58 @@ def build_vggish_examples_dataset():
     threads_group.start()
 
 
+def build_mel_3seconds_groups_dataset():
+    conn = MyConn()
+    config = Config()
+    tracks = [r[0] for r in conn.query(table="sub_tracks", targets=["track_id"], conditions={"is_valid":1})]
+    save_dir_prefix = "/Volumes/nmusic/NetEase2020/data/mel_3seconds_groups"
+    n_dir, dir_size = 1, 100
+    flag, saved_files = count_files(save_dir_prefix, return_files=True) # 已经提取好的歌曲
+    saved_tracks = [x[:-4] for x in saved_files]
+
+    q_tracks = Queue()
+    for t in tracks: 
+        if t not in saved_tracks:
+            q_tracks.put(t)
+    print(q_tracks.qsize())
+    lock = Lock()
+
+    def task(thread_id, task_args):
+        conn = MyConn()
+        while not q_tracks.empty():
+            try:
+                tid = q_tracks.get()
+                
+                lock.acquire()
+                dirpath = assign_dir(prefix=save_dir_prefix, flag=task_args["flag"],
+                                     n_dir=n_dir, dir_size=dir_size)
+                if not os.path.exists(dirpath):
+                    os.makedirs(dirpath)
+                filepath = os.path.join(dirpath, "{}.pkl".format(tid))
+                task_args["flag"] += 1
+                lock.release()
+
+                # 从数据库中获取歌曲的 chorus_start, mp3_path
+                mp3_path, chorus_start = conn.query(
+                    table="sub_tracks", targets=["mp3_path", "chorus_start"], 
+                    conditions={"track_id":tid}, fetchall=False)
+
+                music_vec = get_mel_3seconds_groups(mp3_path, config, offset=chorus_start, duration=18)
+
+                with open(filepath, 'wb') as f:
+                    pickle.dump(music_vec, f)
+            except KeyboardInterrupt:
+                print("KeyboardInterrupt. q_tracks size: {}".format(q_tracks.qsize()))
+                break
+            except:
+                print(tid)
+                print(traceback.format_exc())
+        sys.exit(0)
+
+    task_args = {}
+    task_args["flag"] = flag
+    threads_group = ThreadsGroup(task=task, n_thread=5, task_args=task_args)
+    threads_group.start()   
 
 
 
@@ -360,8 +413,9 @@ def build_train_test_dataset():
 if __name__ == '__main__':
     # build_vggish_embed_dataset()
     # extract_chorus_mark_rawmusic()
-    build_valid_tracks()
+    # build_valid_tracks()
     # build_vggish_examples_dataset()
+    build_mel_3seconds_groups_dataset()
 
 
 

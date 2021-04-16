@@ -296,7 +296,7 @@ def update_special_tag1():
 if __name__ == '__main__':
     # update_chorus_start()
     # create_subtracks_table()
-    update_path(key_col="track_id", col="vggish_examples_path", root_dir="/Volumes/nmusic/NetEase2020/data/vggish_examples/", offset=4, table="sub_tracks", overwrite=True)
+    update_path(key_col="track_id", col="mel_3seconds_groups_path", root_dir="/Volumes/nmusic/NetEase2020/data/mel_3seconds_groups/", offset=4, table="sub_tracks", overwrite=True)
     # refine_subtracks()
     # copy_columns(t1="tracks", t2="sub_tracks", col="language")
     # update_special_tag1()

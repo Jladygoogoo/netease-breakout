@@ -225,6 +225,7 @@ def view_reviews_num_curve(track_id, min_reviews=200, save_path=None):
     fig, ax = plt.subplots()
     x = list(range(len(reviews_count)))
     ax.plot(x, reviews_count)
+    ax.xaxis.set_major_formatter(plt.NullFormatter())
 
     palette = plt.get_cmap('Paired')(np.linspace(0,1,10))
     y_head, beta_head = [], []
@@ -234,10 +235,13 @@ def view_reviews_num_curve(track_id, min_reviews=200, save_path=None):
         y_head.append(y[0])
         beta_head.append(breakouts_group[i][0][1])
         ax.scatter(x=x, y=y, color=palette[i])
+        ax.xaxis.set_major_formatter(plt.NullFormatter())
+    ax.set_xlabel("time")
+    ax.set_ylabel("reviews_num")
 
-    text = '\n'.join(["count:{}, beta:{}".format(y_head[i], beta_head[i])
-                         for i in range(len(y_head))])
-    ax.text(0, 1, text, verticalalignment="top", horizontalalignment="left", transform=ax.transAxes)
+    # text = '\n'.join(["count:{}, beta:{}".format(y_head[i], beta_head[i])
+    #                      for i in range(len(y_head))])
+    # ax.text(0, 1, text, verticalalignment="top", horizontalalignment="left", transform=ax.transAxes)
 
     if save_path:
         if not os.path.exists(os.path.dirname(save_path)):
@@ -339,6 +343,7 @@ def main():
 
 if __name__ == '__main__':
     # main()
-    for p in get_breakouts_by_keywords(["情人节"], "breakouts_feature_words_c3")[:10]:
-        print(p)
+    # for p in get_breakouts_by_keywords(["情人节"], "breakouts_feature_words_c3")[:10]:
+    #     print(p)
+    view_reviews_num_curve("115569", 100)
     

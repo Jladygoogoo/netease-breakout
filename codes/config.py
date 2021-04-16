@@ -59,9 +59,9 @@ class Config:
         self.ARTISTS_VEC_DICT_PATH = "/Users/inkding/Desktop/netease2/data/artists_vec_dict/artists_vec_dict_r_minmax.pkl"
         self.REVIEWS_FEATURE_WORDS_WITH_FREQS_POS_PATH = "/Users/inkding/Desktop/netease2/data/reviews_feature_words_with_freqs/breakouts_cls.json"
         self.REVIEWS_FEATURE_WORDS_WITH_FREQS_NEG_PATH = "/Users/inkding/Desktop/netease2/data/reviews_feature_words_with_freqs/no_breakouts_cls.json"
-        self.POS_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/pos_tracks_cls_vgg.txt"
-        self.NEG_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/neg_tracks_cls_vgg.txt"
-        self.D_POS_TRACK_BREAKOUT_PATH = "/Users/inkding/Desktop/netease2/data_related/tracks/d_pos_track_breakout_cls_vgg.pkl"
+        self.POS_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/pos_tracks_cls.txt"
+        self.NEG_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/neg_tracks_cls.txt"
+        self.D_POS_TRACK_BREAKOUT_PATH = "/Users/inkding/Desktop/netease2/data_related/tracks/d_pos_track_breakout_cls.pkl"
 
 
 if __name__ == '__main__':

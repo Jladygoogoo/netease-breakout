@@ -397,6 +397,61 @@ def get_chorus(input_file, n_fft=2**14, clip_length=15):
     return chorus
 
 
+def get_mel_3seconds_groups(audio_file, config, offset, duration):
+    '''For an efficient computation, we split the full music spectrograms in patches of length n_frames with overlap.
+
+    INPUT
+    
+    - file_name: path to the music file to tag.
+    Data format: string.
+    Example: './audio/TRWJAZW128F42760DD_test.mp3'
+
+    - n_frames: length (in frames) of the input spectrogram patches.
+    Data format: integer.
+    Example: 187
+        
+    - overlap: ammount of overlap (in frames) of the input spectrogram patches.
+    Note: Set it considering n_frames.
+    Data format: integer.
+    Example: 10
+    
+    OUTPUT
+    
+    - batch: batched audio representation. It returns spectrograms split in patches of length n_frames with overlap.
+    Data format: 3D np.array (batch, time, frequency)
+    
+    - audio_rep: raw audio representation (spectrogram).
+    Data format: 2D np.array (time, frequency)
+    '''
+
+    # 3s对应的帧数
+    n_frames = librosa.time_to_frames(3, sr=config.SR, n_fft=config.FFT_SIZE, hop_length=config.FFT_HOP) + 1
+    overlap = n_frames # 不重叠
+
+    audio, sr = librosa.load(audio_file, sr=config.SR, offset=offset, duration=duration)
+    audio_rep = librosa.feature.melspectrogram(y=audio, 
+                                               sr=sr,
+                                               hop_length=config.FFT_HOP,
+                                               n_fft=config.FFT_SIZE,
+                                               n_mels=config.NUM_MELS).T
+    audio_rep = audio_rep.astype(np.float16)
+    audio_rep = np.log10(10000 * audio_rep + 1)
+
+    # batch it for an efficient computing
+    first = True
+    last_frame = audio_rep.shape[0] - n_frames + 1
+    # +1 is to include the last frame that range would not include
+    for time_stamp in range(0, last_frame, overlap):
+        patch = np.expand_dims(audio_rep[time_stamp : time_stamp + n_frames, : ], axis=0)
+        if first:
+            batch = patch
+            first = False
+        else:
+            batch = np.concatenate((batch, patch), axis=0)
+
+    return batch
+
+
 
 if __name__ == '__main__':
     from MyModel.config import Config 
