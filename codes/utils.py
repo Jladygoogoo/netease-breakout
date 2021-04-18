@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import librosa
 import sklearn.metrics as mt
 from gensim.models import Word2Vec
-from pychorus.helpers import create_chroma, find_chorus
+# from pychorus.helpers import create_chroma, find_chorus
 
 
 from d2v import get_doc_vector

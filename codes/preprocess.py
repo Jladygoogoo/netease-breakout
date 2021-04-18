@@ -12,7 +12,8 @@ import pymysql
 
 from connect_db import MyConn
 
-jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
+jieba.load_userdict(os.path.join("/".join(os.path.dirname(__file__).split("/")[:-1]), "resources/grams_0.txt"))
+
 
 # ============ #
 # = 评论预处理 = #
