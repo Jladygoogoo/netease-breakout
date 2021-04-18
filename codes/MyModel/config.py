@@ -1,3 +1,5 @@
+import os
+
 class Config:
     def __init__(self):
         # 数据
@@ -54,18 +56,20 @@ class Config:
         
 
         # 路径
-        self.W2V_PATH = "/Users/inkding/Desktop/netease2/models/w2v/c4.mod"
-        self.D2V_PATH = "/Users/inkding/Desktop/netease2/models/d2v/d2v_b1.mod"    
-        self.ARTISTS_VEC_DICT_PATH = "/Users/inkding/Desktop/netease2/data/artists_vec_dict/artists_vec_dict_r_minmax.pkl"
-        self.REVIEWS_FEATURE_WORDS_WITH_FREQS_POS_PATH = "/Users/inkding/Desktop/netease2/data/reviews_feature_words_with_freqs/breakouts_cls.json"
-        self.REVIEWS_FEATURE_WORDS_WITH_FREQS_NEG_PATH = "/Users/inkding/Desktop/netease2/data/reviews_feature_words_with_freqs/no_breakouts_cls.json"
-        self.POS_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/pos_tracks_cls_vgg.txt"
-        self.NEG_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/neg_tracks_cls_vgg.txt"
-        self.D_POS_TRACK_BREAKOUT_PATH = "/Users/inkding/Desktop/netease2/data_related/tracks/d_pos_track_breakout_cls_vgg.pkl"
-        self.SUB_TRACKS_CSV_PATH = ""
-        self.LYRICS_DIR = ""
-        self.VGGISH_EXAMPLES_DIR = ""
-        self.MEL_3SECONDS_GROUPS_DIR = ""
+        # 本文位于"project_dir/codes/MyModel"
+        project_dir = "/".join(os.path.dirname(__file__).split("/")[:-1])
+        self.W2V_PATH = os.path.join(project_dir, "models/w2v/c4.mod")
+        self.D2V_PATH = os.path.join(project_dir, "models/d2v/d2v_b1.mod")
+        self.ARTISTS_VEC_DICT_PATH = os.path.join(project_dir, "data/artists_vec_dict/artists_vec_dict_r_minmax.pkl")
+        self.REVIEWS_FEATURE_WORDS_WITH_FREQS_POS_PATH = os.path.join(project_dir, "data/reviews_feature_words_with_freqs/breakouts_cls.json")
+        self.REVIEWS_FEATURE_WORDS_WITH_FREQS_NEG_PATH = os.path.join(project_dir, "data/reviews_feature_words_with_freqs/no_breakouts_cls.json")
+        self.POS_TRACKS_FILEPATH = os.path.join(project_dir, "data_related/tracks/pos_tracks_cls_vgg.txt")
+        self.NEG_TRACKS_FILEPATH = os.path.join(project_dir, "data_related/tracks/neg_tracks_cls_vgg.txt")
+        self.D_POS_TRACK_BREAKOUT_PATH = os.path.join(project_dir, "data_related/tracks/d_pos_track_breakout_cls_vgg.pkl")
+        self.SUB_TRACKS_CSV_PATH = os.path.join(project_dir, "data/sub_tracks.csv")
+        self.LYRICS_DIR = os.path.join(project_dir, "data/lyrics_json")
+        self.VGGISH_EXAMPLES_DIR = os.path.join(project_dir, "data/vggish_examples")
+        self.MEL_3SECONDS_GROUPS_DIR = os.path.join(project_dir, "data/mel_3seconds_groups")
 
 
 if __name__ == '__main__':
