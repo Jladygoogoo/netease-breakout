@@ -29,10 +29,9 @@ class MyDataset(data.Dataset):
     def __init__(self, track_label_pairs, config):
         self.config = config
         self.conn = MyConn()
-        # self.vggish = torch.hub.load("harritaylor/torchvggish", "vggish", pretrained=True)
-
         self.data = track_label_pairs
         self.ids = list(range(len(self.data)))
+        self.sub_tracks = pd.read_csv(config.SUB_TRACKS_CSV_PATH)
 
         # 相关模型与数据
         with open(config.ARTISTS_VEC_DICT_PATH, "rb") as f:
@@ -54,29 +53,20 @@ class MyDataset(data.Dataset):
         '''
         必须定义，使用index获取一条完整的数据
         '''
-        tid, label = self.data[index]
-        rawmusic_path, vggish_embed_path, vggish_examples_path, mel_3seconds_groups_path, lyrics_path, artist, chorus_start = self.conn.query(
-            table="sub_tracks", conditions={"track_id":tid}, fetchall=False,
-            targets=["rawmusic_path", "vggish_embed_path", "vggish_examples_path", "mel_3seconds_groups_path", "lyrics_path", "artist", "chorus_start"])
+        tid, label = self.data[index] # track_id和爆发标签（0/1）
 
-        if self.config.MUSIC_DATATYPE=="vggish":
-            with open(vggish_embed_path, "rb") as f:
-                music_vec = pickle.load(f)
-        elif self.config.MUSIC_DATATYPE=="mel":
-            music_vec = torch.Tensor(get_melspectrogram(rawmusic_path, config=self.config))
-        elif self.config.MUSIC_DATATYPE=="mfcc":
-            music_vec = torch.Tensor(get_mfcc(rawmusic_path, config=self.config))
-        elif self.config.MUSIC_DATATYPE=="vggish_examples":
-            with open(vggish_examples_path, "rb") as f:
+        item_df = self.sub_tracks[self.sub_tracks["track_id"]==int(tid)]
+        lyrics_path = get_track_filepath(tid, dir_path=config.LYRICS_DIR, file_fmt="json") # 对应歌词的文件位置
+        artist = item_df[["artist"]].to_numpy()[0] # 对应艺人名称
+
+        if self.config.MUSIC_DATATYPE=="vggish_examples":
+            with open(get_track_filepath(tid, dir_path=config.VGGISH_EXAMPLES_DIR), "rb") as f:
                 music_vec = pickle.load(f)            
         elif self.config.MUSIC_DATATYPE=="mel_3seconds_groups":
-            with open(mel_3seconds_groups_path, "rb") as f:
+            with open(get_track_filepath(tid, dir_path=config.MEL_3SECONDS_GROUPS_DIR), "rb") as f:
                 music_vec = pickle.load(f)
         lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
         artist_vec = torch.Tensor(self.d_artist_vec[artist.lower().strip()])
-        # reviews_vec = torch.Tensor(get_reviews_vec(tid, breakout=label, 
-        #             w2v_model=self.w2v_model, key=self.config.REVIEWS_VEC_KEY)[:self.config.TOPK])
-        # reviews_topk_words = get_reviews_topk_words(tid, is_breakout=label, key="candidates")[:5]
         reviews_vec = torch.Tensor(get_reviews_vec_with_freq(tid, breakout=label, w2v_model=self.w2v_model,
                                     d_breakouts=self.d_breakouts_feature_words, d_no_breakouts=self.d_no_breakouts_feature_words, 
                                     d_pos_track_breakout=self.d_pos_track_breakout, with_freq=False)[:self.config.TOPK])
@@ -88,7 +78,6 @@ class MyDataset(data.Dataset):
             "lyrics_vec": lyrics_vec,
             "artist_vec": artist_vec,
             "reviews_vec": reviews_vec,
-            # "reviews_topk_words": reviews_topk_words
         }
 
         return item_data

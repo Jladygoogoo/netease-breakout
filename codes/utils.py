@@ -452,6 +452,16 @@ def get_mel_3seconds_groups(audio_file, config, offset, duration):
     return batch
 
 
+def get_track_file(track_id, dir_path, file_fmt="pkl"):
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            if "DS" in file:
+                continue
+            if file[:-len(pkl)+1]==track_id:
+                return os.path.join(root, file)
+
+
+
 
 if __name__ == '__main__':
     from MyModel.config import Config 

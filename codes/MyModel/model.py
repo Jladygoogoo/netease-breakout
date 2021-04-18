@@ -128,12 +128,6 @@ class MusicVGG(nn.Module):
         return x
 
 
-# class MusiCNN(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.features = 
-
-
 
 
 class VGG(nn.Module):

@@ -62,6 +62,10 @@ class Config:
         self.POS_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/pos_tracks_cls_vgg.txt"
         self.NEG_TRACKS_FILEPATH = "/Users/inkding/Desktop/netease2/data_related/tracks/neg_tracks_cls_vgg.txt"
         self.D_POS_TRACK_BREAKOUT_PATH = "/Users/inkding/Desktop/netease2/data_related/tracks/d_pos_track_breakout_cls_vgg.pkl"
+        self.SUB_TRACKS_CSV_PATH = ""
+        self.LYRICS_DIR = ""
+        self.VGGISH_EXAMPLES_DIR = ""
+        self.MEL_3SECONDS_GROUPS_DIR = ""
 
 
 if __name__ == '__main__':

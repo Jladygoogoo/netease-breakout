@@ -216,25 +216,25 @@ class M2LAR(Runner):
         return loss, outputs
 
 
-
-class VGG_train_MLAR(Runner):
+class VGG_MLAR(Runner):
     '''
     + 音频部分使用VGG模型，参见论文：musicnn: pre-trained convolutional neuralnetworks for music audio tagging
     + 评论文本部分使用TextCNN模型。
     + 模型结构
         - cat(embed(vgg(music), textcnn(comments)), doc2vec(lyrics), artist_vec) => dnn_classifier
     '''
-    def __init__(self, config, model_index):
+    def __init__(self, config, model_index, device):
         model_mode = "vgg_mlar"
         self.config = config
+        self.device = device
         super().__init__(config, model_mode, model_index)
 
     def _build_model(self):
         self.models = {
-            "vgg": VGG(),
-            "music_embed": MusicEmbed(self.config), # 嵌入模型
-            "textcnn_embed": TextCNNEmbed(self.config), # textcnn+嵌入模型
-            "dnn_classifier": DNNClassifier(self.config, key="embed_classifier")
+            "vgg": VGG().to(self.device),
+            "music_embed": MusicEmbed(self.config).to(self.device), # 嵌入模型
+            "textcnn_embed": TextCNNEmbed(self.config).to(self.device), # textcnn+嵌入模型
+            "dnn_classifier": DNNClassifier(self.config, key="embed_classifier").to(self.device)
         }
         self.params = []
         for model in self.models.values():
@@ -249,18 +249,21 @@ class VGG_train_MLAR(Runner):
 
 
     def _loss(self, batch_data):
-        vggish_examples = batch_data["music_vec"] # （batch_size, 20, 96, 64）
-        s = vggish_examples.shape
-        vggish_examples = vggish_examples.view(s[0]*s[1], s[2], s[3]) # (batch_size*20, 96, 64)
-        vggish = self.models["vgg"](vggish_examples) # (batch_size*20, 128)
-        vggish = vggish.view(s[0], -1) # (batch_size, 20*128)
+        music_vec, reviews_vec, lyrics_vec, artist_vec, labels =\
+         batch_data["music_vec"].to(device), batch_data["reviews_vec"].to(self.device), \
+         batch_data["lyrics_vec"].to(self.device), batch_data["artist_vec"].to(self.device),  batch_data["label"].to(self.device)
+
+        s = music_vec.shape #（batch_size, 20, 96, 64）
+        music_vec = music_vec.contiguous.view(s[0]*s[1], s[2], s[3]) # (batch_size*20, 96, 64)
+        vggish = self.models["vgg"](music_vec) # (batch_size*20, 128)
+        vggish = vggish.contiguous.view(s[0], -1) # (batch_size, 20*128)
 
         music_embed = self.models["music_embed"](vggish)
-        reviews_embed = self.models["textcnn_embed"](batch_data["reviews_vec"])
+        reviews_embed = self.models["textcnn_embed"](reviews_vec)
 
-        X = torch.cat([music_embed, batch_data["lyrics_vec"], batch_data["artist_vec"]], dim=1)
+        X = torch.cat([music_embed, lyrics_vec, artist_vec], dim=1)
         outputs = self.models["dnn_classifier"](X)
-        loss = embedding_loss_euclidean(music_embed, reviews_embed) + F.cross_entropy(outputs, batch_data["label"])
+        loss = embedding_loss_euclidean(music_embed, reviews_embed) + F.cross_entropy(outputs, labels)
 
         return loss, outputs
 
@@ -273,17 +276,18 @@ class MusicVGG_MLAR(Runner):
     + 模型结构
         - cat(embed(vgg(music), textcnn(comments)), doc2vec(lyrics), artist_vec) => dnn_classifier
     '''
-    def __init__(self, config, model_index):
+    def __init__(self, config, model_index, device):
         model_mode = "musicvgg_mlar"
         self.config = config
+        self.device = device
         super().__init__(config, model_mode, model_index)
 
     def _build_model(self):
         self.models = {
             "vgg": MusicVGG(),
-            "music_embed": MusicEmbed(self.config), # 嵌入模型
-            "textcnn_embed": TextCNNEmbed(self.config), # textcnn+嵌入模型
-            "dnn_classifier": DNNClassifier(self.config, key="embed_classifier")
+            "music_embed": MusicEmbed(self.config).to(self.device), # 嵌入模型
+            "textcnn_embed": TextCNNEmbed(self.config).to(self.device), # textcnn+嵌入模型
+            "dnn_classifier": DNNClassifier(self.config, key="embed_classifier").to(self.device)
         }
         self.params = []
         for k, v in self.models.items():
@@ -295,22 +299,28 @@ class MusicVGG_MLAR(Runner):
 
     def _loss(self, batch_data):
         # 根据 MusiCNN 的数据处理方式，音频预处理后分割为3s的片段，并用96mel表示
-        mel_3seconds_groups = batch_data["music_vec"].permute(1,0,2,3) # (n_group, n_batch, n_frames, n_mels)
-        vgg_3seconds_groups = []
-        for g in mel_3seconds_groups: # 对于每个group（3s）的数据单独处理
-            new_g = self.models["vgg"](g)
-            vgg_3seconds_groups.append(new_g)
-        vgg_feature = torch.cat(vgg_3seconds_groups, dim=1)
+        music_vec, reviews_vec, lyrics_vec, artist_vec, labels =\
+         batch_data["music_vec"], batch_data["reviews_vec"].to(self.device), \
+         batch_data["lyrics_vec"].to(self.device), batch_data["artist_vec"].to(self.device),  batch_data["label"].to(self.device)
+        s = music_vec.shape
+        music_vec = music_vec.contiguous().view(s[0]*s[1], s[2], s[3]) # (n_batch*n_group, n_frames, n_mels)
+        vgg_feature = self.models["vgg"](music_vec)
+        vgg_feature = vgg_feature.contiguous().view(s[0], -1).to(self.device)  # (n_batch, n_group*feature_size)
+        # vgg_3seconds_groups = []
+        # for g in mel_3seconds_groups: # 对于每个group（3s）的数据单独处理
+        #     new_g = self.models["vgg"](g)
+        #     vgg_3seconds_groups.append(new_g)
+        # vgg_feature = torch.cat(vgg_3seconds_groups, dim=1).to(self.device)
 
         music_embed = self.models["music_embed"](vgg_feature)
-        reviews_embed = self.models["textcnn_embed"](batch_data["reviews_vec"])
+        reviews_embed = self.models["textcnn_embed"](reviews_vec)
 
-        X = torch.cat([music_embed, batch_data["lyrics_vec"], batch_data["artist_vec"]], dim=1)
-        outputs = self.models["dnn_classifier"](X)
-        loss = embedding_loss_euclidean(music_embed, reviews_embed) + F.cross_entropy(outputs, batch_data["label"])
+        X = torch.cat([music_embed, lyrics_vec, artist_vec], dim=1)
+        with torch.no_grad():
+            outputs = self.models["dnn_classifier"](X)
+        loss = embedding_loss_euclidean(music_embed, reviews_embed) + F.cross_entropy(outputs, labels)
 
         return loss, outputs
-
 
 
 
@@ -346,31 +356,39 @@ def main():
     config = Config()
     
     ##### 加载数据集
-    config.MUSIC_DATATYPE = "vggish_examples"
+    config.MUSIC_DATATYPE = "mel_3seconds_groups"
     config.REVIEWS_VEC_KEY = "candidates_cls"
     # config.REVIEWS_VEC_KEY = "candidates"
     train_dataloader, valid_dataloader, test_dataloader = get_data_loader(config)
+    # 使用设备（使用用显卡加速）
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    ##### 配置信息
+    ##### 修改配置信息
     config.TEXTCNN_KERNEL_SIZES = [4, 4]
+    config.LEARNING_RATE = 1e-4
     # config.TEXTCNN_NUM_CHANNELS = 512
     config.EMBED_SIZE = 256
     config.DNNCLASSIFIER_IN_SIZE = 628
     # config.DNNCLASSIFIER_IN_SIZE = 3188
-    config.MUSICEMBED_IN_SIZE = 2560
-    # config.MUSICEMBED_IN_SIZE = 1536
+    # config.MUSICEMBED_IN_SIZE = 2560
+    config.MUSICEMBED_IN_SIZE = 1536
     config.VGG_STATIC = True
+    #应对显存不够
+    # config.BATCH_SIZE = 16
+
 
     ##### 模型
-    model_index = "0414"
+    model_index = "0418"
     # notes = "textcnn only K=[4, 4] topk=5 candidates"
     # notes = "mlar [4,4,4] embed=512 candidates_cls 3"
     notes = "vgg_mlar dynamic [4, 4] candidates_cls 4"
+    notes = "musicvgg_mlar static [4,4] candidates_cls 4"
     print("[NOTES]", notes)
     # runner = MLAR(config, model_index)
     # runner = TextCNNOnly(config, model_index)
     # runner = M2LAR(config, model_index)
-    runner = VGG_MLAR(config, model_index)
+    runner = MusicVGG_MLAR(config, model_index, device)
+    # runner = VGG_MLAR(config, model_index, device)
 
     ##### 训练
     records = {"train_losses":[], "valid_losses":[], "train_accs":[], "valid_accs":[]}
