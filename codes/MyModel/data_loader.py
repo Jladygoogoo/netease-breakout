@@ -15,7 +15,7 @@ import torch.utils.data as data
 
 from config import Config
 
-sys.path.append("/Users/inkding/Desktop/netease2/codes")
+sys.path.append("/".join(os.path.dirname(__file__).split("/")[:-1]))
 from utils import get_mfcc, get_d2v_vector, get_w2v_vector, get_melspectrogram, get_reviews_vec, get_reviews_vec_with_freq, get_reviews_topk_words
 from model_utils import get_mel_3seconds_groups
 from connect_db import MyConn
@@ -28,7 +28,7 @@ class MyDataset(data.Dataset):
     '''
     def __init__(self, track_label_pairs, config):
         self.config = config
-        self.conn = MyConn()
+        # self.conn = MyConn()
         # self.vggish = torch.hub.load("harritaylor/torchvggish", "vggish", pretrained=True)
 
         self.data = track_label_pairs

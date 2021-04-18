@@ -370,7 +370,8 @@ def main():
     # runner = MLAR(config, model_index)
     # runner = TextCNNOnly(config, model_index)
     # runner = M2LAR(config, model_index)
-    runner = VGG_MLAR(config, model_index)
+    # runner = VGG_MLAR(config, model_index)
+    runner = MusicVGG_MLAT(config, )
 
     ##### 训练
     records = {"train_losses":[], "valid_losses":[], "train_accs":[], "valid_accs":[]}
