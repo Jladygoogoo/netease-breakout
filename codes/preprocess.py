@@ -12,7 +12,8 @@ import pymysql
 
 from connect_db import MyConn
 
-jieba.load_userdict("/Users/inkding/Desktop/netease2/resources/grams_0.txt")
+project_dir = "/".join(os.path.dirname(__file__).split("/")[:-1])
+jieba.load_userdict(os.path.join(project_dir, "resources/grams_0.txt"))
 
 # ============ #
 # = 评论预处理 = #
@@ -24,7 +25,7 @@ def replace_noise(text):
 
 	# 除去标点符号
 	# 注意颜文字中的特殊符号
-	puncs = open("/Users/inkding/Desktop/netease2/resources/punctuations.txt").read().splitlines()
+	puncs = open(os.path.join(project_dir, "resources/punctuations.txt")).read().splitlines()
 	for p in puncs:
 		text = text.lower().replace(p, '')
 
@@ -47,7 +48,7 @@ def raw_cut(text, min_size = 2):
 	text = re.sub(r'[a-zA-z]', '', text)
 
 	# 处理中文
-	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
+	stops = open(os.path.join(project_dir, "resources/stopwords.txt")).read().splitlines()
 	for cn_w in jieba.cut(text):
 		if len(cn_w)>=min_size and cn_w not in stops:
 			words.append(cn_w)
@@ -63,9 +64,9 @@ def cut(text, join_en=True, stops_sup=None, filter_number=False):
 	连续英文用'-'连接，在切词时作为一个词
 	'''
 	words = []
-	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines()
+	stops = open(os.path.join(project_dir, "resources/stopwords.txt")).read().splitlines()
 	if stops_sup:
-		stops = stops + stops_sup
+			stops = stops + stops_sup
 	# 处理英文
 	if join_en:
 		for en_ws in re.findall(r'[\u4e00-\u9fa5 ]*([a-zA-z ]+)[\u4e00-\u9fa5 ]*' ,text):
@@ -89,7 +90,7 @@ def cut_en(text, stops_sup=[]):
 	'''
 	对英文进行切词
 	'''
-	stops = open("/Users/inkding/Desktop/netease2/resources/stopwords.txt").read().splitlines() + stops_sup
+	stops = open(os.path.join(project_dir, "resources/stopwords.txt")).read().splitlines()+stops_sup
 	clean_words = []
 	words = text.lower().split()
 	for w in words:
@@ -176,7 +177,7 @@ def tags_extractor(text, topk=10, w2v_model=None, stops_sup=None, return_freq=Fa
 
 	tags = []
 	# rubbish = open("../resources/rubbish_tags.txt").read().splitlines()
-	if w2v_model is not None:
+	if w3v_model is not None:
 		for x in counter.most_common():
 			if not w2v_model.wv.__contains__(x[0]): continue
 			# if x[0] in rubbish: continue

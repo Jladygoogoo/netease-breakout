@@ -294,10 +294,42 @@ def musicvgg_load_pretrained_params(params_filepath, musicvgg):
             musicvgg.state_dict()[k] = torch.Tensor(tf_params["{}CNN/bias:0".format(tf_cnn_index)])
 
 
+def model_size_in_gpu(model, input, type_size=4):
+    # 模型显存占用监测函数
+    # model：输入的模型
+    # input：实际中需要输入的Tensor变量
+    # type_size 默认为 4 默认类型为 float32 
 
-def musicnn_load_pretrained_params(params_filepath, musicnn):
-    # 将原tensorflow模型MTT_CNN上的参数重载入本MusiCNN模型中
-    with open(params_filepath, "rb") as f:
-        tf_params = pickle.load(f) 
+#     print(model.parameters)
+    para = sum([np.prod(list(p.size())) for p in model.parameters()]) # 总参数量
+    print('Model {} : params: {:4f}M'.format(model._get_name(), para * type_size / 1000 / 1000))
+
+    input_ = input.clone()
+#     input_.requires_grad_(requires_grad=False)
+    input_.detach()
+
+    mods = list(model.modules())
+#     print(len(mods))
+    out_sizes = []
+
+    for i in range(1, len(mods)):
+        m = mods[i]
+        if isinstance(m, nn.Sequential): continue
+        if isinstance(m, nn.ReLU) and m.inplace: continue
+        out = m(input_)
+        out_sizes.append(np.array(out.size())) # 保存每一层的中间变量大小
+        input_ = out
+
+    total_nums = 0
+    for i in range(len(out_sizes)):
+        s = out_sizes[i]
+        nums = np.prod(np.array(s))
+        total_nums += nums
+
+
+    print('Model {} : intermedite variables: {:3f} M (without backward)'
+          .format(model._get_name(), total_nums * type_size / 1000 / 1000))
+    print('Model {} : intermedite variables: {:3f} M (with backward)'
+          .format(model._get_name(), total_nums * type_size*2 / 1000 / 1000))
 
 

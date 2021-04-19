@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import pickle
+import pandas as pd
 import numpy as np 
 import random
 random.seed(21)
@@ -15,8 +16,8 @@ import torch.utils.data as data
 
 from config import Config
 
-sys.path.append("/Users/inkding/Desktop/netease2/codes")
-from utils import get_mfcc, get_d2v_vector, get_w2v_vector, get_melspectrogram, get_reviews_vec, get_reviews_vec_with_freq, get_reviews_topk_words
+sys.path.append("/".join(os.path.dirname(__file__).split("/")[:-1]))
+from utils import get_mfcc, get_d2v_vector, get_w2v_vector, get_melspectrogram, get_reviews_vec, get_reviews_vec_with_freq, get_reviews_topk_words, get_track_filepath
 from model_utils import get_mel_3seconds_groups
 from connect_db import MyConn
 
@@ -28,7 +29,7 @@ class MyDataset(data.Dataset):
     '''
     def __init__(self, track_label_pairs, config):
         self.config = config
-        self.conn = MyConn()
+        # self.conn = MyConn()
         self.data = track_label_pairs
         self.ids = list(range(len(self.data)))
         self.sub_tracks = pd.read_csv(config.SUB_TRACKS_CSV_PATH)
@@ -56,14 +57,14 @@ class MyDataset(data.Dataset):
         tid, label = self.data[index] # track_id和爆发标签（0/1）
 
         item_df = self.sub_tracks[self.sub_tracks["track_id"]==int(tid)]
-        lyrics_path = get_track_filepath(tid, dir_path=config.LYRICS_DIR, file_fmt="json") # 对应歌词的文件位置
-        artist = item_df[["artist"]].to_numpy()[0] # 对应艺人名称
+        lyrics_path = get_track_filepath(tid, dir_path=self.config.LYRICS_DIR, file_fmt="json") # 对应歌词的文件位置
+        artist = item_df[["artist"]].to_numpy()[0][0] # 对应艺人名称
 
         if self.config.MUSIC_DATATYPE=="vggish_examples":
-            with open(get_track_filepath(tid, dir_path=config.VGGISH_EXAMPLES_DIR), "rb") as f:
+            with open(get_track_filepath(tid, dir_path=self.config.VGGISH_EXAMPLES_DIR), "rb") as f:
                 music_vec = pickle.load(f)            
         elif self.config.MUSIC_DATATYPE=="mel_3seconds_groups":
-            with open(get_track_filepath(tid, dir_path=config.MEL_3SECONDS_GROUPS_DIR), "rb") as f:
+            with open(get_track_filepath(tid, dir_path=self.config.MEL_3SECONDS_GROUPS_DIR), "rb") as f:
                 music_vec = pickle.load(f)
         lyrics_vec = torch.Tensor(get_d2v_vector(lyrics_path, self.d2v_model))
         artist_vec = torch.Tensor(self.d_artist_vec[artist.lower().strip()])

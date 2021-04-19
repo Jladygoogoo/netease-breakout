@@ -57,7 +57,7 @@ class Config:
 
         # 路径
         # 本文位于"project_dir/codes/MyModel"
-        project_dir = "/".join(os.path.dirname(__file__).split("/")[:-1])
+        project_dir = "/".join(os.path.dirname(__file__).split("/")[:-2])
         self.W2V_PATH = os.path.join(project_dir, "models/w2v/c4.mod")
         self.D2V_PATH = os.path.join(project_dir, "models/d2v/d2v_b1.mod")
         self.ARTISTS_VEC_DICT_PATH = os.path.join(project_dir, "data/artists_vec_dict/artists_vec_dict_r_minmax.pkl")

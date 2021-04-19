@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import librosa
 import sklearn.metrics as mt
 from gensim.models import Word2Vec
-from pychorus.helpers import create_chroma, find_chorus
+# from pychorus.helpers import create_chroma, find_chorus
 
 
 from d2v import get_doc_vector
@@ -299,7 +299,6 @@ def get_reviews_vec(track_id, breakout, w2v_model, key="wo_fake"):
 
 
 def get_reviews_vec_with_freq(track_id, breakout, w2v_model, d_breakouts, d_no_breakouts, d_pos_track_breakout, with_freq=True):
-    conn = MyConn()
     if breakout:
         bid = d_pos_track_breakout[track_id]
         feature_words = d_breakouts[bid]["words"]
@@ -452,12 +451,12 @@ def get_mel_3seconds_groups(audio_file, config, offset, duration):
     return batch
 
 
-def get_track_file(track_id, dir_path, file_fmt="pkl"):
+def get_track_filepath(track_id, dir_path, file_fmt="pkl"):
     for root, dirs, files in os.walk(dir_path):
         for file in files:
             if "DS" in file:
                 continue
-            if file[:-len(pkl)+1]==track_id:
+            if file[:-len(file_fmt)-1]==track_id:
                 return os.path.join(root, file)
 
 
