@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR, OneCycleLR, CyclicLR
 
 from data_loader import get_data_loader
 from config import Config
@@ -29,9 +29,14 @@ class Runner:
     def __init__(self, config, model_mode, model_index):
         self._build_model()
         self.config = config
-        self.optimizer = torch.optim.SGD(self.params, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, weight_decay=config.WEIGHT_DECAY)
-        self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=config.FACTOR, patience=config.PATIENCE, verbose=True)
-        # self.scheduler = MultiStepLR(self.optimizer, milestones=[50,70,90], gamma=0.1)
+        self.optimizer = torch.optim.SGD(self.params, lr=config.LR, momentum=config.MOMENTUM, weight_decay=config.WEIGHT_DECAY)
+#         self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=config.FACTOR, patience=config.PATIENCE, verbose=True)
+#         self.scheduler = OneCycleLR(self.optimizer, max_lr=[1e-5, 1e-3, 1e-3, 1e-3], epochs=100, steps_per_epoch=79)
+        self.scheduler = CyclicLR(
+            self.optimizer, 
+            base_lr=[3e-6, 3e-4, 3e-4, 3e-4], max_lr=[1.5e-5, 1.5e-3, 1.5e-3, 1.5e-3], 
+            step_size_up=200, # 推荐2-10倍的epochs（此处的step表示一个iter）
+        )
         self.model_save_dir = save_settings(model_mode, model_index, config) # 保存路径
 
     # 初始化模型结构和参数
@@ -65,6 +70,7 @@ class Runner:
                 self.optimizer.zero_grad() # 将上一步的梯度清零
                 loss.backward() # 利用损失函数，反向传播计算梯度
                 self.optimizer.step() # 利用梯度和学习率更新参数
+                self.scheduler.step() # 学习率调整器
 
         return epoch_losses, epoch_accs
 
@@ -230,17 +236,22 @@ class VGG_MLAR(Runner):
         super().__init__(config, model_mode, model_index)
 
     def _build_model(self):
+        # 模型模块
         self.models = {
             "vgg": VGG().to(self.device),
             "music_embed": MusicEmbed(self.config).to(self.device), # 嵌入模型
             "textcnn_embed": TextCNNEmbed(self.config).to(self.device), # textcnn+嵌入模型
             "dnn_classifier": DNNClassifier(self.config, key="embed_classifier").to(self.device)
         }
+        
+        # 模型参数
         self.params = []
         for k, v in self.models.items():
-            if self.config.VGG_STATIC and "vgg" in k: # 不训练vgg模型的参数
+            if k=="vgg":
+                if not self.config.VGG_STATIC: 
+                    self.params += [{"params": v.parameters(), "lr":self.config.VGG_LR}]
                 continue
-            self.params += list(v.parameters())
+            self.params += [{"params": v.parameters()}]
 
         # 使用原始VGGish模型参数初始化本地VGG参数
         pretrained_vgg = torch.hub.load("harritaylor/torchvggish", "vggish", pretrained=True)
@@ -367,24 +378,22 @@ def main():
 
     ##### 修改配置信息
     config.TEXTCNN_KERNEL_SIZES = [4, 4]
-    config.LEARNING_RATE = 1e-3
     # config.TEXTCNN_NUM_CHANNELS = 512
     config.EMBED_SIZE = 256
     config.DNNCLASSIFIER_IN_SIZE = 628
     # config.DNNCLASSIFIER_IN_SIZE = 3188
     config.MUSICEMBED_IN_SIZE = 2560
 #     config.MUSICEMBED_IN_SIZE = 1536
-    config.VGG_STATIC = True
-    #应对显存不够
-    # config.BATCH_SIZE = 16
+    config.VGG_STATIC = False # 是否保持VGG模型的参数不变
+    config.EPOCHS_NUM = 100 
 
 
     ##### 模型
-    model_index = "0419"
+    model_index = "0421"
     # notes = "textcnn only K=[4, 4] topk=5 candidates"
     # notes = "mlar [4,4,4] embed=512 candidates_cls 3"
 #     notes = "vgg_mlar dynamic [4, 4] candidates_cls 4"
-    notes = "vgg_mlar static [4,4] candidates_cls 3"
+    notes = "vgg_mlar dynamic [4,4] candidates_cls one_cycle True" 
     print("[NOTES]", notes)
     # runner = MLAR(config, model_index)
     # runner = TextCNNOnly(config, model_index)
@@ -405,17 +414,20 @@ def main():
         runner.save_loss_acc(records, step_size=(79, 10), notes=notes) # ⚠️
 
         # 打印/绘制训练信息
-        print("[Epoch {}/{}] [Train Loss: {:.3f}] [Train Acc: {:.3f}] [Valid Loss: {:.3f}] [Valid Acc: {:.3f}]".format(
-            epoch, config.EPOCHS_NUM, np.mean(epoch_train_losses), np.mean(epoch_train_accs), np.mean(epoch_valid_losses), np.mean(epoch_valid_accs)))
+        info = "[Epoch {}/{}] [Train Loss: {:.3f}] [Train Acc: {:.3f}] [Valid Loss: {:.3f}] [Valid Acc: {:.3f}] LR: {:.7f}, {:.7f}".format(
+            epoch, config.EPOCHS_NUM, np.mean(epoch_train_losses), np.mean(epoch_train_accs), np.mean(epoch_valid_losses), np.mean(epoch_valid_accs), runner.scheduler.get_lr()[0], runner.scheduler.get_lr()[1])
+        print(info)
+        with open("log.txt","a") as f:
+            f.write(info+'\n')
 
         # runner.print_params()
         # save models
         # if epoch % config.EPOCH_SAVE_STEP == 0:
             # runner.save_models(epoch)
             
-        if runner.early_stop(np.mean(epoch_valid_losses)):
+#         if runner.early_stop(np.mean(epoch_valid_losses)):
             # runner.save_models(epoch)
-            break
+#             break
 
 
 if __name__ == '__main__':

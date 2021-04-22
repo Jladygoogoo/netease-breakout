@@ -25,7 +25,8 @@ class Config:
         self.TOPK = 5
 
         # 训练
-        self.LEARNING_RATE = 1e-3
+        self.LR = 1e-3
+        self.VGG_LR = 1e-4
         self.STOPPING_RATE = 1e-6
         self.WEIGHT_DECAY = 1e-7
         self.MOMENTUM = 0.01

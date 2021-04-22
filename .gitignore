@@ -2,6 +2,7 @@
 /data/
 /logs/
 /DBpedia/
+/cloud_files/
 
 # 中间目录下文件夹/文件
 models/
