@@ -393,7 +393,7 @@ def main():
     # notes = "textcnn only K=[4, 4] topk=5 candidates"
     # notes = "mlar [4,4,4] embed=512 candidates_cls 3"
 #     notes = "vgg_mlar dynamic [4, 4] candidates_cls 4"
-    notes = "vgg_mlar dynamic [4,4] candidates_cls one_cycle True" 
+    notes = "vgg_mlar dynamic [4,4] candidates_cls cyclicLR True" 
     print("[NOTES]", notes)
     # runner = MLAR(config, model_index)
     # runner = TextCNNOnly(config, model_index)
