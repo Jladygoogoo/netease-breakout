@@ -1,0 +1,68 @@
+[I 21:25:41.857 NotebookApp] 端口 8892 已经被站用, 请尝试其他端口.
+[I 21:25:41.866 NotebookApp] 启动notebooks 在本地路径: /home/wnj/Projects/netease-breakout
+[I 21:25:41.866 NotebookApp] 本程序运行在: http://localhost:8893/?token=ee29f351daab4546f6d9c99db2041df69a412360e805db60
+[I 21:25:41.866 NotebookApp] 使用control-c停止此服务器并关闭所有内核(两次跳过确认).
+[C 21:25:41.869 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///run/user/1013/snap.jupyter/jupyter/nbserver-94622-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8893/?token=ee29f351daab4546f6d9c99db2041df69a412360e805db60
+[I 18:20:18.666 NotebookApp] 启动notebooks 在本地路径: /home/wnj/Projects/netease-breakout
+[I 18:20:18.666 NotebookApp] 本程序运行在: http://localhost:8894/?token=fe35854f508b5b801fd3f092e079bc360c51fb3f083fedf9
+[I 18:20:18.666 NotebookApp] 使用control-c停止此服务器并关闭所有内核(两次跳过确认).
+[C 18:20:18.670 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///run/user/1013/snap.jupyter/jupyter/nbserver-55492-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8894/?token=fe35854f508b5b801fd3f092e079bc360c51fb3f083fedf9
+[I 18:20:35.641 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 18:21:05.830 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 18:21:11.381 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 18:21:14.447 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:10:48.742 NotebookApp] 端口 8894 已经被站用, 请尝试其他端口.
+[I 20:10:48.762 NotebookApp] 启动notebooks 在本地路径: /home/wnj/Projects/netease-breakout
+[I 20:10:48.762 NotebookApp] 本程序运行在: http://localhost:8895/?token=5b39c0518567b0e10fb085a54c1adc234fdf33e2128123d5
+[I 20:10:48.762 NotebookApp] 使用control-c停止此服务器并关闭所有内核(两次跳过确认).
+[C 20:10:48.766 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///run/user/1013/snap.jupyter/jupyter/nbserver-82593-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8895/?token=5b39c0518567b0e10fb085a54c1adc234fdf33e2128123d5
+[I 20:12:48.362 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:14:40.962 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:14:45.172 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:14:47.238 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:16:33.244 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:17:08.464 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:17:08.489 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:17:09.226 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:17:09.992 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:17:13.280 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 20:18:47.767 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 01:18:09.575 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 01:19:54.720 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 01:20:10.779 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 01:20:14.687 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 11:01:12.307 NotebookApp] 端口 8894 已经被站用, 请尝试其他端口.
+[I 11:01:12.314 NotebookApp] 端口 8895 已经被站用, 请尝试其他端口.
+[I 11:01:12.338 NotebookApp] 启动notebooks 在本地路径: /home/wnj/Projects/netease-breakout
+[I 11:01:12.338 NotebookApp] 本程序运行在: http://localhost:8896/?token=564c46dd870307ca413e990121143da9871509e932448d04
+[I 11:01:12.338 NotebookApp] 使用control-c停止此服务器并关闭所有内核(两次跳过确认).
+[C 11:01:12.343 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///run/user/1013/snap.jupyter/jupyter/nbserver-28155-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8896/?token=564c46dd870307ca413e990121143da9871509e932448d04
+[I 11:01:52.243 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 11:11:47.660 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 11:16:46.426 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 11:16:52.426 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 12:08:08.731 NotebookApp] Saving file at /codes/MyModel/run.py
+[I 22:32:36.167 NotebookApp] 302 GET / (127.0.0.1) 1.68ms
+[I 22:32:36.182 NotebookApp] 302 GET /tree? (127.0.0.1) 1.64ms
+[C 22:33:50.582 NotebookApp] 接受信号 15, 正在停止
+[I 22:33:50.583 NotebookApp] 关闭 0 服务

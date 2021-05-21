@@ -12,10 +12,9 @@ CNN_framework = {
 }
 
 dnn_hiddens = {
-    "fc_classifier": [1024, 512, 128],
-    "embed_classifier": [256, 128, 64],
-    "embed_classifier2": [1024, 512, 64],
-    "music_embed": [1024, 512, 256]
+    "vgg_mlar": [628, 256, 128, 64],
+    "vgg_mla": [2932, 1024, 512, 64],
+    "music_embed": [2560, 1024, 512, 256]
 }
 
 def make_layers_customcnn(k):
@@ -42,22 +41,6 @@ def make_layers_vgg():
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
             layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
-    return nn.Sequential(*layers)
-
-
-def make_layers_vgg2():
-    # musicnn: pre-trained convolutional neural networks for music audio tagging
-    layers = []
-    maxpool_set = [(4,1,2),(2,2,2),(2,2,2),(2,2,2),(4,4,4)]
-    in_channels = 1
-
-    for s in maxpool_set:
-        conv2d = nn.Conv2d(in_channels, 128, kernel_size=3, padding=1)
-        layers += [conv2d, nn.ReLU(inplace=True)]
-        in_channels = 128
-        layers += [nn.BatchNorm2d(num_features=in_channels)]
-        layers += [nn.MaxPool2d(kernel_size=(s[0],s[1]), stride=(s[2],s[2]))]
-
     return nn.Sequential(*layers)
 
 
@@ -115,21 +98,6 @@ class CustomCNN(nn.Module):
 
 
 
-class MusicVGG(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.features = make_layers_vgg2()
-        self.fc = nn.Linear(in_features=2*128, out_features=50) # 原模型输出音乐种类数为50
-
-    def forward(self, x):
-        x = x.unsqueeze(1) # 增加channel纬度 (batch_size, 1, n_frames, n_mels)
-        x = self.features(x) # 经过卷积网络
-        x = x.view(x.shape[0], -1) # (batch_size, -1)
-        return x
-
-
-
-
 class VGG(nn.Module):
     def __init__(self):
         super(VGG, self).__init__()
@@ -165,7 +133,7 @@ class DNNClassifier(nn.Module):
     def __init__(self, config, key):
         super().__init__()
         layers = []
-        hiddens = [config.DNNCLASSIFIER_IN_SIZE] + dnn_hiddens[key]
+        hiddens = dnn_hiddens[key]
         for i in range(len(hiddens)-1):
             layers.extend([nn.Linear(hiddens[i], hiddens[i+1]), 
                            nn.ReLU(), 
@@ -185,7 +153,7 @@ class MusicEmbed(nn.Module):
     '''
     def __init__(self, config):
         super().__init__()
-        hiddens = [config.MUSICEMBED_IN_SIZE] + dnn_hiddens["music_embed"]
+        hiddens = dnn_hiddens["music_embed"]
         layers = []
         for i in range(len(hiddens)-2):
             layers.extend([

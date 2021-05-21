@@ -10,6 +10,7 @@ random.seed(21)
 from collections import Counter, UserDict, OrderedDict
 
 from gensim.models import Doc2Vec, Word2Vec
+from sklearn.model_selection import train_test_split
 
 import torch
 import torch.utils.data as data
@@ -88,96 +89,40 @@ class MyDataset(data.Dataset):
 
 
 
-def split_tracks_from_db(train_size, valid_size, test_size, random_state=21):
+def split_tracks_from_files(class_size, pos_tracks_filepath, neg_tracks_filepath, test_size=0.2):
     '''
-    从数据库中获取可用歌曲id，并将其划分为 train, valid, test
+    根据指定爆发和非爆发歌曲ID文件，构建 train-test 数据集。
+    返回 (歌曲ID, label) 数组。
     '''
-    total_size = train_size + valid_size + test_size
-    class_train_size, class_valid_size, class_test_size = train_size//2, valid_size//2, test_size//2
-    conn = MyConn()
-    pos_sql = "SELECT track_id FROM sub_tracks WHERE valid_bnum>0 AND is_valid=1"
-    neg_sql = "SELECT track_id FROM sub_tracks WHERE valid_bnum=0 AND is_valid=1"
-    pos_tracks = random.sample([(r[0], 1) for r in conn.query(sql=pos_sql)], total_size//2)
-    neg_tracks = random.sample([(r[0], 0) for r in conn.query(sql=neg_sql)], total_size//2)
-    if len(pos_tracks)<total_size//2:
-        raise RuntimeError("dataset size too large.")
+    pos_tracks = random.sample(open(pos_tracks_filepath).read().splitlines(), class_size)
+    neg_tracks = random.sample(open(neg_tracks_filepath).read().splitlines(), class_size)
+    pos_labels, neg_labels = [1]*class_size, [0]*class_size
 
-    train_tracks = pos_tracks[:class_train_size] + neg_tracks[:class_train_size]
-    valid_tracks = pos_tracks[class_train_size:class_train_size+class_valid_size] + neg_tracks[class_train_size:class_train_size+class_valid_size]
-    test_tracks = pos_tracks[-class_test_size:] + neg_tracks[-class_test_size:]
+    X_train, X_test, y_train, y_test = train_test_split(pos_tracks+neg_tracks, pos_labels+neg_labels, 
+                                                test_size=test_size, random_state=21)
+    train_data = list(zip(X_train, y_train)) # (track, label) pairs
+    test_data = list(zip(X_test, y_test))
 
-    return train_tracks, valid_tracks, test_tracks
+    return train_data, test_data
 
-
-def split_tracks_from_files(train_size, valid_size, test_size, 
-            pos_tracks_filepath, neg_tracks_filepath, random_state=21):
-    total_size = train_size + valid_size + test_size
-    class_train_size, class_valid_size, class_test_size = train_size//2, valid_size//2, test_size//2
-    
-    pos_tracks = [(r, 1) for r in open(pos_tracks_filepath).read().splitlines()]
-    neg_tracks = [(r, 0) for r in open(neg_tracks_filepath).read().splitlines()]
-
-    train_tracks = pos_tracks[:class_train_size] + neg_tracks[:class_train_size]
-    valid_tracks = pos_tracks[class_train_size:class_train_size+class_valid_size] + neg_tracks[class_train_size:class_train_size+class_valid_size]
-    test_tracks = pos_tracks[-class_test_size:] + neg_tracks[-class_test_size:]
-
-    return train_tracks, valid_tracks, test_tracks
 
 
 def get_data_loader(config):
     '''
-    获取 data_loaders
+    获取训练集和测试集的 dataloader。
     '''
-    # train_tracks, valid_tracks, test_tracks = split_tracks_from_db(
-    #                     config.TRAIN_SIZE, config.VALID_SIZE, config.TEST_SIZE)
-    # train_dataloader = data.DataLoader(MyDataset(train_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
-    # valid_dataloader = data.DataLoader(MyDataset(valid_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
-    # test_dataloader = data.DataLoader(MyDataset(test_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
+    train_data, test_data = split_tracks_from_files(config.CLASS_SIZE,
+                                    config.POS_TRACKS_FILEPATH, config.NEG_TRACKS_FILEPATH, config.TEST_SIZE)
 
-    train_tracks, valid_tracks, test_tracks = split_tracks_from_files(
-            config.TRAIN_SIZE, config.VALID_SIZE, config.TEST_SIZE,
-            config.POS_TRACKS_FILEPATH, config.NEG_TRACKS_FILEPATH)
-    train_dataloader = data.DataLoader(MyDataset(train_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
-    valid_dataloader = data.DataLoader(MyDataset(valid_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
-    test_dataloader = data.DataLoader(MyDataset(valid_tracks, config), batch_size=config.BATCH_SIZE, shuffle=True)
+    train_dataloader = data.DataLoader(MyDataset(train_data, config), batch_size=config.BATCH_SIZE, shuffle=True)
+    test_dataloader = data.DataLoader(MyDataset(test_data, config), batch_size=config.BATCH_SIZE, shuffle=True)
 
-    return train_dataloader, valid_dataloader, test_dataloader
+    return train_dataloader, test_dataloader
 
 
 
 if __name__ == '__main__':
     config = Config()
-    config.MUSIC_DATATYPE="vggish"
-    config.REVIEWS_VEC_KEY = "candidates"
-    train_dataloader, valid_dataloader, test_dataloader = get_data_loader(config)
-
-    counter_pos = Counter()
-    counter_neg = Counter()
-    for batch_data in train_dataloader:
-        labels = batch_data["label"]
-        words = batch_data["reviews_topk_words"]
-        for i in range(len(words[0])):
-            item_words = [words[k][i] for k in range(5)]
-            if labels[i]==1:
-                counter_pos.update(item_words)
-            else:
-                counter_neg.update(item_words)
-    total_pos, total_neg = sum(counter_pos.values()), sum(counter_neg.values())
-    d_freq_pos = dict([(p[0],p[1]/total_pos) for p in counter_pos.most_common()])
-    d_freq_neg = dict([(p[0],p[1]/total_neg) for p in counter_neg.most_common()])
-
-    d_freq_diff = {}
-    for w in d_freq_pos:
-        if w in d_freq_neg:
-            d_freq_diff[w] = d_freq_pos[w] / d_freq_neg[w]
-        else:
-            d_freq_diff[w] = -1
-    for w in d_freq_pos:
-        if w not in d_freq_diff:
-            d_freq_diff[w] = -1
-
-    d_freq_diff_sorted = OrderedDict(sorted(list(d_freq_diff.items()), key=lambda p:p[1], reverse=True))
-    for k,v in d_freq_diff_sorted.items():
-        print(k, v)
+        
 
 

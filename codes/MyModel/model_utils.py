@@ -7,8 +7,8 @@ import librosa
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from model import MusicVGG
+from pytorch_metric_learning.losses import ContrastiveLoss
+from pytorch_metric_learning.distances import CosineSimilarity, LpDistance
 
 
 def get_pairwise_embed(feature_words, embed1, semantic_feature_embed, word_to_vec):
@@ -141,35 +141,80 @@ def my_loss3(embed1, pos_embeds2, neg_embeds2, beta):
 
 def embedding_loss_euclidean(embed1, embed2):
     '''
-    使用欧式距离
+    计算嵌入损失，最小化欧式距离
     '''
     loss = torch.mean(F.pairwise_distance(embed1, embed2))
     return loss
 
 
+def embedding_loss_dot_product(embed1, embed2):
+    '''
+    计算嵌入损失，最大化点积相似度
+    '''
+    # 需要先标准化，防止loss无穷大
+    embed1_norm = F.normalize(embed1, p=2, dim=1)
+    embed2_norm = F.normalize(embed2, p=2, dim=1)
+    # torch.sum(embed1*embed2, dim=1) 计算各匹配特征的点积
+    # 1-x 将最大化点击相似度转换为最小化损失函数问题
+    loss = torch.mean(1-torch.sum(embed1_norm*embed2_norm, dim=1))   
+    return loss
 
-def get_contrastive_loss_kiros(gamma=0, symmetric=False):
-    """ Compile contrastive loss (Kiros et al. 2014) """
 
-    def loss(lv1, lv2):
-        """ Contrastive cosine distance optimization target """
 
-        # compute image-sentence score matrix
-        scores = torch.matmul(lv1, lv2.T)
-        diagonal = scores.diagonal()
+def embedding_loss_contrastive(device, gamma=0, symmetric=False):
+    '''
+    contrasive loss（对比损失），使用点积相似度。
+    Args:
+        gamma: 间隔（要求匹配的相似度至少比不匹配的大多少）
+        symmetric: 无作用
+    '''
 
-        # compare every diagonal score to scores in its column (i.e, all contrastive images for each sentence)
-        cost_s = torch.max(torch.zeros(scores.shape), gamma - diagonal + scores)
-        # compare every diagonal score to scores in its row (i.e, all contrastive sentences for each image)
-        cost_im = torch.max(torch.zeros(scores.shape), gamma - diagonal.reshape((-1, 1)) + scores)
+    def loss(embed1, embed2):
+        '''
+        contrasive loss 的具体计算过程。
+        Args:
+            embed1, embed2: 待优化距离的向量组，分别对应音频和文本，大小为(N, embed_size)
+        '''
 
-        # clear diagonals
+        # 需要先标准化，防止loss无穷大
+        embed1_norm = F.normalize(embed1, p=2, dim=1)
+        embed2_norm = F.normalize(embed2, p=2, dim=1)        
+
+        # 计算音频嵌入和文本嵌入的相似度矩阵
+        scores = torch.matmul(embed1_norm, embed2_norm.T)
+        diagonal = scores.diagonal() # 取出对角线上的值（配对）
+        zero_mtx = torch.zeros(scores.shape).to(device)
+        
+        # 将对角线上的值和其所在的列进行比较（列对应的是和某个文本最匹配的音频）
+        cost_s = torch.max(zero_mtx, gamma - diagonal + scores)
+        # 将对角线上的值和其所在的行进行比较（行对应的是和某个音频最匹配的文本）
+        cost_im = torch.max(zero_mtx, gamma - diagonal.reshape((-1, 1)) + scores)
+
+        # 清除对角线上的gamma值
         cost_s.fill_diagonal_(0)
         cost_im.fill_diagonal_(0)
 
         return cost_s.sum() + cost_im.sum()
 
     return loss
+
+
+
+def embedding_loss_contrastive_ml(mode="lp"):
+    '''
+    使用pytorch-metric-learning中的contrasive loss，距离默认为欧式距离（LpDistance）
+    '''
+    if mode=="lp":
+        loss = ContrastiveLoss(
+            pos_margin=0.25, neg_margin=1.5, distance=LpDistance(power=2)
+        )
+    elif mode=="cos":
+        loss = ContrastiveLoss(
+            pos_margin=1.5, neg_margin=0.6, distance=CosineSimilarity()
+        )        
+    return loss
+    
+
 
 
 def get_contrastive_cos_loss(weight, gamma, symmetric=False):

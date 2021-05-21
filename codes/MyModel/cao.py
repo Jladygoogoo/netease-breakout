@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from config import Config
-from data_loader import get_data_loader
+from data_loader import split_tracks_from_files
 from model_utils import model_size_in_gpu
 from model import VGG
 
@@ -23,4 +23,12 @@ def calc_vgg_size_in_gpu():
 
 
 if __name__ == '__main__':
-    calc_vgg_size_in_gpu()
+    config = Config()
+#     config.MUSIC_DATATYPE="vggish"
+#     config.REVIEWS_VEC_KEY = "candidates"
+#     train_dataloader, valid_dataloader, test_dataloader = get_data_loader(config)
+
+    train_tracks, valid_tracks, test_tracks = split_tracks_from_files(
+        2600, 300, 100, config.POS_TRACKS_FILEPATH, config.NEG_TRACKS_FILEPATH)
+    print(train_tracks[:20])
+    print(valid_tracks[:20])

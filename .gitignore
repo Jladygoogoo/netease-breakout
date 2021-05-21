@@ -12,3 +12,5 @@ dec/
 *.ipynb
 *.png
 *.html
+*.log
+*.out

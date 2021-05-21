@@ -6,11 +6,11 @@ class Config:
         self.LYRICS_EMBED_SIZE = 300
         self.ARTIST_EMBED_SIZE = 72
         self.WORD_EMBED_SIZE = 300
-        self.TRAIN_SIZE = 2500 # pos:neg = 1:1
-        self.VALID_SIZE = 300
-        self.TEST_SIZE = 100
+        self.CLASS_SIZE = 1487
+        self.TEST_SIZE = 0.2 # 训练集和数据集的比例为 8:2
         self.BATCH_SIZE = 32
         self.NUM_CLASS = 2
+        
         ## 音频特征提取
         self.SR=16000 # sampling rate
         self.FFT_SIZE = 512
@@ -65,7 +65,7 @@ class Config:
         self.REVIEWS_FEATURE_WORDS_WITH_FREQS_POS_PATH = os.path.join(project_dir, "data/reviews_feature_words_with_freqs/breakouts_cls.json")
         self.REVIEWS_FEATURE_WORDS_WITH_FREQS_NEG_PATH = os.path.join(project_dir, "data/reviews_feature_words_with_freqs/no_breakouts_cls.json")
         self.POS_TRACKS_FILEPATH = os.path.join(project_dir, "data_related/tracks/pos_tracks_cls_vgg.txt")
-        self.NEG_TRACKS_FILEPATH = os.path.join(project_dir, "data_related/tracks/neg_tracks_cls_vgg.txt")
+        self.NEG_TRACKS_FILEPATH = os.path.join(project_dir, "data_related/tracks/neg_tracks_cls_vgg2.txt")
         self.D_POS_TRACK_BREAKOUT_PATH = os.path.join(project_dir, "data_related/tracks/d_pos_track_breakout_cls_vgg.pkl")
         self.SUB_TRACKS_CSV_PATH = os.path.join(project_dir, "data/sub_tracks.csv")
         self.LYRICS_DIR = os.path.join(project_dir, "data/lyrics_json")
